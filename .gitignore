@@ -1,0 +1,15 @@
+# --- Backend / secrets: NEVER publish to the public Pages repo ---
+# apps_script.gs contains your YouTube API key
+apps_script.gs
+# Apps Script manifest
+appsscript.json
+# clasp project link (script id)
+.clasp.json
+# clasp credentials
+.clasprc.json
+.claspignore
+
+# --- Tooling ---
+node_modules/
+__pycache__/
+*.pyc

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Bash(python -m pip --version)",
+      "Bash(npm ls *)",
+      "Bash(dir .clasp.json)",
+      "Bash(dir .clasp)"
+    ]
+  }
+}

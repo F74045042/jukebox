@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>點唱機 ｜ 播放中</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Bungee&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c;
+    --bg-2:#1f1712;
+    --card:#271d16;
+    --flame:#ff6b35;
+    --gold:#ffd23f;
+    --cream:#fff8f0;
+    --muted:#9c8a7c;
+    --line:#3a2d23;
+    --danger:#ff5d5d;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background: radial-gradient(circle at 50% 0%, var(--bg-2), var(--bg) 65%);
+    color:var(--cream);
+    font-family:'Noto Sans TC', sans-serif;
+    height:100vh; overflow:hidden;
+    display:flex;
+  }
+  .stage{
+    flex:1.4; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; padding:30px; position:relative;
+    border-right:1px solid var(--line);
+  }
+  .brand{
+    position:absolute; top:24px; left:30px;
+    font-family:'Bungee', sans-serif; color:var(--flame);
+    font-size:20px; letter-spacing:1px;
+    text-shadow:0 0 16px rgba(255,107,53,0.5);
+  }
+  #player{ display:none; }
+
+  .vinyl-wrap{ position:relative; width:280px; height:280px; }
+  .vinyl{
+    width:280px; height:280px; border-radius:50%;
+    background: repeating-radial-gradient(circle, #0c0907 0px, #0c0907 4px, #1a140f 5px, #1a140f 9px);
+    border:6px solid var(--card);
+    box-shadow:0 0 50px rgba(255,107,53,0.18), 0 20px 50px rgba(0,0,0,0.5);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .vinyl.spin{ animation: spin 4s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .vinyl-center{
+    width:70px; height:70px; border-radius:50%; background:var(--flame);
+    box-shadow:0 0 22px rgba(255,107,53,0.7);
+  }
+
+  .now-title{
+    margin-top:30px; font-size:26px; font-weight:900; text-align:center;
+    max-width:90%; line-height:1.4;
+  }
+  .now-table{
+    margin-top:10px; color:var(--gold); font-size:14px; font-weight:700;
+    background:var(--card); padding:6px 16px; border-radius:999px; border:1px solid var(--line);
+  }
+  .idle-msg{ text-align:center; color:var(--muted); }
+  .idle-msg .icon{ font-size:56px; display:block; margin-bottom:14px; }
+  .idle-msg .qr-tip{ font-size:15px; margin-top:6px; }
+
+  .controls{
+    margin-top:34px; display:flex; gap:14px;
+  }
+  .ctl-btn{
+    padding:11px 22px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card); color:var(--cream); font-size:14px; font-weight:700;
+    cursor:pointer;
+  }
+  .ctl-btn.skip{ border-color:var(--flame); color:var(--flame); }
+  .ctl-btn.clear{ border-color:var(--danger); color:var(--danger); }
+  .ctl-btn:active{ transform:scale(0.96); }
+
+  .unlock-overlay{
+    position:fixed; inset:0; background:rgba(15,11,8,0.92);
+    display:flex; align-items:center; justify-content:center; z-index:100;
+    flex-direction:column; gap:18px; text-align:center;
+  }
+  .unlock-btn{
+    padding:18px 40px; border-radius:14px; border:none;
+    background:linear-gradient(135deg, var(--flame), #c8451f);
+    color:#1a1410; font-size:18px; font-weight:900; cursor:pointer;
+    box-shadow:0 10px 30px rgba(255,107,53,0.35);
+  }
+
+  .sidebar{
+    flex:1; padding:30px 26px; overflow-y:auto;
+  }
+  .sidebar h2{
+    font-size:13px; color:var(--muted); letter-spacing:1.5px;
+    margin:0 0 18px; display:flex; align-items:center; gap:8px;
+  }
+  .sidebar h2::after{ content:''; flex:1; height:1px; background:var(--line); }
+
+  .qrow{
+    display:flex; gap:12px; align-items:center; padding:11px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .qrow img{ width:48px; height:48px; border-radius:8px; object-fit:cover; }
+  .qrow .num{
+    width:22px; height:22px; flex-shrink:0; border-radius:6px; background:var(--bg-2);
+    color:var(--muted); display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700;
+  }
+  .qrow .info{ flex:1; min-width:0; }
+  .qrow .title{
+    font-size:14px; font-weight:500; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .qrow .table{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .qrow .del{
+    background:none; border:none; color:var(--muted); font-size:18px; cursor:pointer;
+    flex-shrink:0; padding:4px;
+  }
+  .qrow .del:hover{ color:var(--danger); }
+  .empty-q{ color:var(--muted); font-size:14px; padding:20px 0; text-align:center; }
+</style>
+</head>
+<body>
+
+<div class="unlock-overlay" id="unlockOverlay">
+  <div style="font-size:48px;">🔊</div>
+  <div style="font-size:16px; color:var(--muted);">點一下開始播放，之後會自動接續播放佇列中的歌曲</div>
+  <button class="unlock-btn" onclick="unlockAndStart()">▶ 開始播放</button>
+</div>
+
+<div class="stage">
+  <div class="brand">🎵 點唱機</div>
+  <div id="player"></div>
+
+  <div id="idleView" class="idle-msg" style="display:none;">
+    <span class="icon">🎤</span>
+    目前沒有歌曲播放
+    <div class="qr-tip">掃桌上的 QR Code，點一首你想聽的歌！</div>
+  </div>
+
+  <div id="playingView" style="display:none; align-items:center; flex-direction:column; display:flex;">
+    <div class="vinyl-wrap">
+      <div class="vinyl spin" id="vinyl"><div class="vinyl-center"></div></div>
+    </div>
+    <div class="now-title" id="nowTitle">—</div>
+    <div class="now-table" id="nowTable">—桌 點播</div>
+    <div class="controls">
+      <button class="ctl-btn skip" onclick="skipCurrent()">⏭ 跳過</button>
+      <button class="ctl-btn clear" onclick="clearAll()">🗑 清空佇列</button>
+    </div>
+  </div>
+</div>
+
+<div class="sidebar">
+  <h2>接下來播放</h2>
+  <div id="upNext"></div>
+</div>
+
+<script>
+const API_URL = 'PUT_YOUR_APPS_SCRIPT_URL_HERE'; // 換成你部署後的 .../exec 網址
+
+let ytPlayer = null;
+let currentSong = null;
+let started = false;
+let queueCache = [];
+
+async function api(action, params = {}) {
+  const url = new URL(API_URL);
+  url.searchParams.set('action', action);
+  for (const k in params) url.searchParams.set(k, params[k]);
+  const res = await fetch(url.toString());
+  return res.json();
+}
+
+// ---- YouTube IFrame API ----
+function loadYT() {
+  return new Promise((resolve) => {
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.body.appendChild(tag);
+    window.onYouTubeIframeAPIReady = () => resolve();
+  });
+}
+
+async function initPlayer() {
+  await loadYT();
+  ytPlayer = new YT.Player('player', {
+    height: '360', width: '640',
+    playerVars: { autoplay: 1, controls: 0, rel: 0 },
+    events: {
+      onStateChange: onPlayerStateChange
+    }
+  });
+}
+
+function onPlayerStateChange(e) {
+  if (e.data === YT.PlayerState.ENDED) {
+    handleSongEnded();
+  }
+}
+
+async function unlockAndStart() {
+  document.getElementById('unlockOverlay').style.display = 'none';
+  started = true;
+  await initPlayer();
+  tick();
+  setInterval(tick, 5000);
+}
+
+async function handleSongEnded() {
+  if (currentSong) {
+    await api('markPlayed', { id: currentSong.id });
+    currentSong = null;
+  }
+  tick();
+}
+
+async function skipCurrent() {
+  if (currentSong) {
+    await api('markPlayed', { id: currentSong.id });
+    currentSong = null;
+    tick();
+  }
+}
+
+async function clearAll() {
+  if (!confirm('確定要清空整個佇列嗎？')) return;
+  await api('clearQueue');
+  currentSong = null;
+  tick();
+}
+
+// ---- 主迴圈：撈佇列，決定要播什麼 ----
+async function tick() {
+  try {
+    const data = await api('getQueue');
+    if (!data.success) return;
+    queueCache = data.queue;
+    renderSidebar();
+
+    if (!currentSong) {
+      const playing = queueCache.find(s => s.status === 'playing');
+      const nextWaiting = queueCache.find(s => s.status === 'waiting');
+      const next = playing || nextWaiting;
+      if (next) {
+        currentSong = next;
+        showPlayingView(next);
+        if (ytPlayer && ytPlayer.loadVideoById) {
+          ytPlayer.loadVideoById(next.videoId);
+        }
+        if (next.status !== 'playing') {
+          await api('markPlaying', { id: next.id });
+        }
+      } else {
+        showIdleView();
+      }
+    } else {
+      // 確認目前播放的歌仍存在於佇列（沒被刪除/清空）
+      const stillThere = queueCache.find(s => s.id === currentSong.id);
+      if (!stillThere) {
+        currentSong = null;
+        if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
+        tick();
+      }
+    }
+  } catch (e) {}
+}
+
+function showPlayingView(song) {
+  document.getElementById('idleView').style.display = 'none';
+  document.getElementById('playingView').style.display = 'flex';
+  document.getElementById('nowTitle').textContent = song.title;
+  document.getElementById('nowTable').textContent = song.table + '桌 點播';
+}
+
+function showIdleView() {
+  document.getElementById('idleView').style.display = 'flex';
+  document.getElementById('playingView').style.display = 'none';
+}
+
+function renderSidebar() {
+  const upNext = queueCache.filter(s => !currentSong || s.id !== currentSong.id);
+  const el = document.getElementById('upNext');
+  if (!upNext.length) {
+    el.innerHTML = '<div class="empty-q">佇列已空，等待新的點歌～</div>';
+    return;
+  }
+  el.innerHTML = upNext.map((s, i) => `
+    <div class="qrow">
+      <div class="num">${i + 1}</div>
+      <img src="${s.thumbnail}">
+      <div class="info">
+        <div class="title">${escapeHtml(s.title)}</div>
+        <div class="table">${escapeHtml(String(s.table))}桌</div>
+      </div>
+      <button class="del" onclick="deleteSong('${s.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+async function deleteSong(id) {
+  await api('deleteSong', { id });
+  tick();
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

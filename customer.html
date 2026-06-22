@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>點唱機 ｜ 點一首歌</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Bungee&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1a1410;
+    --bg-2:#241b15;
+    --card:#2b211a;
+    --flame:#ff6b35;
+    --flame-2:#ff9355;
+    --gold:#ffd23f;
+    --cream:#fff8f0;
+    --muted:#a8978a;
+    --line:#3a2d23;
+    --danger:#ff5d5d;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: radial-gradient(circle at 50% -10%, var(--bg-2), var(--bg) 60%);
+    color:var(--cream);
+    font-family:'Noto Sans TC', sans-serif;
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+  .topbar{
+    position:sticky; top:0; z-index:10;
+    background:linear-gradient(180deg, rgba(26,20,16,0.97), rgba(26,20,16,0.85));
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+    padding:14px 18px 12px;
+  }
+  .brand{
+    display:flex; align-items:baseline; gap:10px;
+  }
+  .brand .mark{
+    font-family:'Bungee', sans-serif;
+    color:var(--flame);
+    font-size:22px;
+    letter-spacing:1px;
+    text-shadow:0 0 14px rgba(255,107,53,0.55);
+  }
+  .brand .sub{ font-size:13px; color:var(--muted); }
+  .status-row{
+    display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;
+  }
+  .pill{
+    font-size:12.5px;
+    padding:6px 11px;
+    border-radius:999px;
+    background:var(--card);
+    border:1px solid var(--line);
+    color:var(--muted);
+    display:flex; align-items:center; gap:6px;
+  }
+  .pill b{ color:var(--cream); font-weight:700; }
+  .pill.warn{ border-color:#5a3a1f; }
+  .pill.warn b{ color:var(--gold); }
+  .pill.bad b{ color:var(--danger); }
+
+  .wrap{ padding:18px; max-width:520px; margin:0 auto; }
+
+  .tabs{
+    display:flex; gap:8px; margin-bottom:16px;
+  }
+  .tab{
+    flex:1; text-align:center; padding:11px 0;
+    border-radius:10px; border:1px solid var(--line);
+    background:var(--card); color:var(--muted);
+    font-weight:700; font-size:14.5px; cursor:pointer;
+    transition:all .15s ease;
+  }
+  .tab.active{
+    background:linear-gradient(135deg, var(--flame), #c8451f);
+    color:#1a1410; border-color:transparent;
+    box-shadow:0 4px 14px rgba(255,107,53,0.3);
+  }
+
+  .search-box{
+    display:flex; gap:8px; margin-bottom:16px;
+  }
+  input[type=text]{
+    flex:1; padding:13px 14px; border-radius:10px;
+    border:1px solid var(--line); background:var(--bg-2);
+    color:var(--cream); font-size:15px; font-family:inherit;
+  }
+  input[type=text]::placeholder{ color:#7a6a5d; }
+  input[type=text]:focus{ outline:none; border-color:var(--flame); }
+
+  button.go{
+    padding:0 18px; border-radius:10px; border:none;
+    background:linear-gradient(135deg, var(--gold), #e0a812);
+    color:#241b15; font-weight:900; font-size:15px; cursor:pointer;
+    white-space:nowrap;
+  }
+  button.go:active{ transform:scale(0.97); }
+  button.go:disabled{ opacity:0.4; }
+
+  .empty{ text-align:center; color:var(--muted); padding:40px 10px; font-size:14px; line-height:1.8;}
+  .empty .icon{ font-size:34px; display:block; margin-bottom:10px; }
+
+  .result-card{
+    display:flex; gap:12px; background:var(--card);
+    border:1px solid var(--line); border-radius:12px;
+    padding:10px; margin-bottom:10px; align-items:center;
+  }
+  .result-card img{
+    width:64px; height:64px; border-radius:8px; object-fit:cover; flex-shrink:0;
+  }
+  .result-info{ flex:1; min-width:0; }
+  .result-info .title{
+    font-size:14px; font-weight:500; line-height:1.4;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .result-info .channel{ font-size:12px; color:var(--muted); margin-top:3px; }
+  .add-btn{
+    flex-shrink:0; width:42px; height:42px; border-radius:10px;
+    border:1px solid var(--flame); background:transparent; color:var(--flame);
+    font-size:22px; font-weight:700; cursor:pointer; line-height:1;
+  }
+  .add-btn:active{ background:var(--flame); color:#1a1410; }
+  .add-btn:disabled{ opacity:0.3; border-color:var(--muted); color:var(--muted); }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--cream); color:#1a1410; padding:12px 22px;
+    border-radius:999px; font-size:14px; font-weight:700;
+    box-shadow:0 6px 20px rgba(0,0,0,0.4);
+    opacity:0; transition:opacity .25s ease, transform .25s ease;
+    pointer-events:none; z-index:50; max-width:85vw; text-align:center;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(-6px); }
+  .toast.error{ background:var(--danger); color:#fff; }
+
+  .section-title{
+    font-size:13px; color:var(--muted); margin:22px 0 10px; letter-spacing:1px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .section-title::after{ content:''; flex:1; height:1px; background:var(--line); }
+
+  .queue-row{
+    display:flex; gap:10px; align-items:center; padding:9px 0;
+    border-bottom:1px solid var(--line); font-size:13.5px;
+  }
+  .queue-row:last-child{ border-bottom:none; }
+  .queue-row .num{
+    width:22px; height:22px; border-radius:6px; background:var(--bg-2);
+    color:var(--muted); display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700; flex-shrink:0;
+  }
+  .queue-row.playing .num{ background:var(--flame); color:#1a1410; }
+  .queue-row .t{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .queue-row .tb{ color:var(--muted); font-size:12px; flex-shrink:0; }
+
+  .loader{
+    text-align:center; padding:20px; color:var(--muted); font-size:13px;
+  }
+  .spin{
+    display:inline-block; width:16px; height:16px; border:2px solid var(--line);
+    border-top-color:var(--flame); border-radius:50%;
+    animation:spin .7s linear infinite; vertical-align:middle; margin-right:8px;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="mark">🎵 點唱機</span>
+    <span class="sub">掃桌上 QR 點一首你想聽的歌</span>
+  </div>
+  <div class="status-row">
+    <div class="pill" id="tablePill">桌號：<b id="tableNo">--</b></div>
+    <div class="pill" id="tableQuotaPill">本桌可點：<b id="tableRemaining">-</b> 首</div>
+    <div class="pill" id="quotaPill">今日搜尋剩餘：<b id="searchRemaining">-</b> 次</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="tabs">
+    <div class="tab active" id="tabSearch" onclick="switchTab('search')">🔍 搜尋歌曲</div>
+    <div class="tab" id="tabLink" onclick="switchTab('link')">🔗 貼上連結</div>
+  </div>
+
+  <div id="searchPane">
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="輸入歌名或歌手..." onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="go" id="searchBtn" onclick="doSearch()">搜尋</button>
+    </div>
+    <div id="searchResults"></div>
+  </div>
+
+  <div id="linkPane" style="display:none;">
+    <div class="search-box">
+      <input type="text" id="linkInput" placeholder="貼上 YouTube 影片連結...">
+      <button class="go" onclick="doLinkLookup()">查詢</button>
+    </div>
+    <div id="linkResult"></div>
+    <div class="empty" style="padding:20px 10px;">
+      <span class="icon">💡</span>
+      在 YouTube App 找到想點的歌，按「分享」→「複製連結」，貼到這裡即可，不會占用搜尋次數。
+    </div>
+  </div>
+
+  <div class="section-title">目前排隊中</div>
+  <div id="queueList"><div class="loader">載入中...</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API_URL = 'PUT_YOUR_APPS_SCRIPT_URL_HERE'; // 換成你部署後的 .../exec 網址
+
+// ---- 桌號處理 ----
+function getTable() {
+  const params = new URLSearchParams(window.location.search);
+  let t = params.get('table');
+  if (t) {
+    localStorage.setItem('jukebox_table', t);
+    return t;
+  }
+  return localStorage.getItem('jukebox_table') || '未指定';
+}
+const TABLE = getTable();
+document.getElementById('tableNo').textContent = TABLE;
+
+// ---- 共用 ----
+function showToast(msg, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => { el.className = 'toast'; }, 2600);
+}
+
+async function api(action, params = {}) {
+  const url = new URL(API_URL);
+  url.searchParams.set('action', action);
+  for (const k in params) url.searchParams.set(k, params[k]);
+  const res = await fetch(url.toString());
+  return res.json();
+}
+
+function switchTab(name) {
+  document.getElementById('tabSearch').classList.toggle('active', name === 'search');
+  document.getElementById('tabLink').classList.toggle('active', name === 'link');
+  document.getElementById('searchPane').style.display = name === 'search' ? '' : 'none';
+  document.getElementById('linkPane').style.display = name === 'link' ? '' : 'none';
+}
+
+// ---- 配額 / 桌況顯示 ----
+async function refreshQuota() {
+  try {
+    const q = await api('getQuota');
+    if (q.success) document.getElementById('searchRemaining').textContent = q.remaining;
+  } catch (e) {}
+}
+async function refreshTableStatus() {
+  try {
+    const t = await api('getTableStatus', { table: TABLE });
+    if (t.success) {
+      document.getElementById('tableRemaining').textContent = t.remaining;
+      document.getElementById('tableQuotaPill').className = 'pill' + (t.remaining === 0 ? ' bad' : t.remaining === 1 ? ' warn' : '');
+    }
+  } catch (e) {}
+}
+
+// ---- 搜尋 ----
+async function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  const resultsEl = document.getElementById('searchResults');
+  resultsEl.innerHTML = '<div class="loader"><span class="spin"></span>搜尋中...</div>';
+  try {
+    const data = await api('search', { query: q });
+    btn.disabled = false;
+    if (!data.success) {
+      if (data.error === 'QUOTA_EXCEEDED') {
+        resultsEl.innerHTML = '';
+        showToast(data.message, true);
+        switchTab('link');
+      } else {
+        resultsEl.innerHTML = '<div class="empty">搜尋失敗：' + (data.error || '未知錯誤') + '</div>';
+      }
+      if (data.quota) document.getElementById('searchRemaining').textContent = data.quota.remaining;
+      return;
+    }
+    if (data.quota) document.getElementById('searchRemaining').textContent = data.quota.remaining;
+    if (!data.results.length) {
+      resultsEl.innerHTML = '<div class="empty">找不到符合的歌曲，換個關鍵字試試？</div>';
+      return;
+    }
+    resultsEl.innerHTML = data.results.map(r => `
+      <div class="result-card">
+        <img src="${r.thumbnail}">
+        <div class="result-info">
+          <div class="title">${escapeHtml(r.title)}</div>
+          <div class="channel">${escapeHtml(r.channel)}</div>
+        </div>
+        <button class="add-btn" onclick='addToQueue(${JSON.stringify(r.videoId)}, ${JSON.stringify(r.title)}, ${JSON.stringify(r.thumbnail)}, this)'>＋</button>
+      </div>
+    `).join('');
+  } catch (e) {
+    btn.disabled = false;
+    resultsEl.innerHTML = '<div class="empty">連線失敗，請稍後再試</div>';
+  }
+}
+
+// ---- 貼連結 ----
+async function doLinkLookup() {
+  const url = document.getElementById('linkInput').value.trim();
+  if (!url) return;
+  const resultEl = document.getElementById('linkResult');
+  resultEl.innerHTML = '<div class="loader"><span class="spin"></span>查詢中...</div>';
+  try {
+    const data = await api('getVideoInfo', { url: url });
+    if (!data.success) {
+      resultEl.innerHTML = '<div class="empty">' + (data.error || '查詢失敗') + '</div>';
+      return;
+    }
+    resultEl.innerHTML = `
+      <div class="result-card">
+        <img src="${data.thumbnail}">
+        <div class="result-info">
+          <div class="title">${escapeHtml(data.title)}</div>
+        </div>
+        <button class="add-btn" onclick='addToQueue(${JSON.stringify(data.videoId)}, ${JSON.stringify(data.title)}, ${JSON.stringify(data.thumbnail)}, this)'>＋</button>
+      </div>
+    `;
+  } catch (e) {
+    resultEl.innerHTML = '<div class="empty">連線失敗，請稍後再試</div>';
+  }
+}
+
+// ---- 加入佇列 ----
+async function addToQueue(videoId, title, thumbnail, btnEl) {
+  btnEl.disabled = true;
+  try {
+    const data = await api('addSong', { table: TABLE, videoId, title, thumbnail });
+    if (data.success) {
+      showToast('🎶 已加入佇列！排在第 ' + data.position + ' 位');
+      refreshTableStatus();
+      loadQueue();
+    } else {
+      showToast(data.message || data.error || '加入失敗', true);
+      btnEl.disabled = false;
+    }
+  } catch (e) {
+    showToast('連線失敗，請稍後再試', true);
+    btnEl.disabled = false;
+  }
+}
+
+// ---- 佇列顯示 ----
+async function loadQueue() {
+  try {
+    const data = await api('getQueue');
+    const el = document.getElementById('queueList');
+    if (!data.success || !data.queue.length) {
+      el.innerHTML = '<div class="empty"><span class="icon">🎤</span>目前還沒有人點歌，當第一個吧！</div>';
+      return;
+    }
+    el.innerHTML = data.queue.map((s, i) => `
+      <div class="queue-row ${s.status === 'playing' ? 'playing' : ''}">
+        <div class="num">${s.status === 'playing' ? '▶' : i + 1}</div>
+        <div class="t">${escapeHtml(s.title)}</div>
+        <div class="tb">${escapeHtml(String(s.table))}桌</div>
+      </div>
+    `).join('');
+  } catch (e) {}
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : str;
+  return div.innerHTML;
+}
+
+// ---- 初始化 ----
+refreshQuota();
+refreshTableStatus();
+loadQueue();
+setInterval(loadQueue, 6000);
+setInterval(refreshTableStatus, 8000);
+</script>
+</body>
+</html>
