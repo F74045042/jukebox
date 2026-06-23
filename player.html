@@ -186,9 +186,87 @@
   }
   .qrow .del:hover{ color:var(--danger); background:rgba(255,106,95,0.12); }
   .empty-q{ color:var(--faint); font-size:14px; padding:24px 0; text-align:center; }
+
+  /* ⚙️ 設定 */
+  .gear{
+    position:fixed; top:24px; right:26px; z-index:40;
+    width:46px; height:46px; border-radius:13px; cursor:pointer;
+    background:var(--glass); border:1px solid var(--border-strong); color:var(--text);
+    font-size:20px; backdrop-filter:blur(8px); transition:transform .2s, background .14s;
+  }
+  .gear:hover{ background:rgba(255,255,255,0.1); transform:rotate(45deg); }
+  .settings-overlay{
+    position:fixed; inset:0; z-index:110; display:none;
+    align-items:center; justify-content:center; padding:24px;
+    background:rgba(8,8,12,0.8); backdrop-filter:blur(10px);
+  }
+  .settings-card{
+    width:100%; max-width:420px; background:#17120f;
+    border:1px solid var(--border-strong); border-radius:20px; padding:26px 24px;
+    box-shadow:0 30px 80px -20px rgba(0,0,0,0.85);
+  }
+  .settings-card h3{ margin:0 0 6px; font-size:20px; font-weight:700; }
+  .settings-card .desc{ font-size:13px; color:var(--muted); margin-bottom:22px; }
+  .field{ margin-bottom:20px; }
+  .field > label{ display:block; font-size:14.5px; font-weight:600; margin-bottom:8px; }
+  .field .hint2{ font-size:12px; color:var(--faint); font-weight:400; margin-top:5px; line-height:1.5; }
+  .field input[type=number]{
+    width:100%; padding:12px 14px; border-radius:11px; font-size:16px; font-family:inherit;
+    background:var(--glass); border:1px solid var(--border); color:var(--text);
+  }
+  .field input[type=number]:focus{ outline:none; border-color:var(--ember); }
+  .switch-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+  .switch{ position:relative; width:52px; height:30px; flex-shrink:0; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .slider{
+    position:absolute; inset:0; border-radius:999px; cursor:pointer;
+    background:rgba(255,255,255,0.14); transition:.2s; border:1px solid var(--border);
+  }
+  .slider::before{
+    content:''; position:absolute; width:22px; height:22px; left:4px; top:3px;
+    border-radius:50%; background:#fff; transition:.2s;
+  }
+  .switch input:checked + .slider{ background:var(--grad); border-color:transparent; }
+  .switch input:checked + .slider::before{ transform:translateX(22px); }
+  .settings-actions{ display:flex; gap:10px; margin-top:26px; }
+  .settings-actions button{
+    flex:1; padding:13px; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit;
+  }
+  .btn-cancel{ background:var(--glass); border:1px solid var(--border-strong); color:var(--text); }
+  .btn-save{ background:var(--grad); border:none; color:#2a1206; }
 </style>
 </head>
 <body>
+
+<button class="gear" onclick="openSettings()" title="設定">⚙️</button>
+
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-card">
+    <h3>播放設定</h3>
+    <div class="desc">這些設定全店共用、即時生效</div>
+    <div class="field">
+      <label>點歌冷卻時間（分鐘）</label>
+      <input type="number" id="setCooldown" min="0" step="1">
+      <div class="hint2">每桌點完一首後，要等這麼久才能再點。0 = 不限制。</div>
+    </div>
+    <div class="field">
+      <label>每桌歌曲上限</label>
+      <input type="number" id="setMax" min="1" step="1">
+      <div class="hint2">每桌同時最多可有幾首待播／播放中的歌。</div>
+    </div>
+    <div class="field switch-row">
+      <div>
+        <label style="margin:0;">無佇列時播放歷史歌單</label>
+        <div class="hint2">沒人點歌時，自動從播放過的歌隨機墊檔；有人點歌立刻切回。</div>
+      </div>
+      <label class="switch"><input type="checkbox" id="setHistory"><span class="slider"></span></label>
+    </div>
+    <div class="settings-actions">
+      <button class="btn-cancel" onclick="closeSettings()">取消</button>
+      <button class="btn-save" onclick="saveSettingsPanel()">儲存</button>
+    </div>
+  </div>
+</div>
 
 <div class="unlock-overlay" id="unlockOverlay">
   <div class="unlock-disc"></div>
@@ -240,6 +318,8 @@ let playerReady = false;
 let currentSong = null;
 let started = false;
 let queueCache = [];
+let settings = { cooldownMin: 0, maxPerTable: 3, playHistoryWhenIdle: false };
+let historyList = [];
 
 async function api(action, params = {}) {
   const url = new URL(API_URL);
@@ -247,6 +327,41 @@ async function api(action, params = {}) {
   for (const k in params) url.searchParams.set(k, params[k]);
   const res = await fetch(url.toString());
   return res.json();
+}
+
+// ---- 設定面板 ----
+async function loadSettings() {
+  try {
+    const s = await api('getSettings');
+    if (s.success) {
+      settings.cooldownMin = s.cooldownMin;
+      settings.maxPerTable = s.maxPerTable;
+      settings.playHistoryWhenIdle = s.playHistoryWhenIdle;
+    }
+  } catch (e) {}
+}
+function openSettings() {
+  document.getElementById('setCooldown').value = settings.cooldownMin;
+  document.getElementById('setMax').value = settings.maxPerTable;
+  document.getElementById('setHistory').checked = settings.playHistoryWhenIdle;
+  document.getElementById('settingsOverlay').style.display = 'flex';
+}
+function closeSettings() { document.getElementById('settingsOverlay').style.display = 'none'; }
+async function saveSettingsPanel() {
+  const cooldownMin = Math.max(0, parseInt(document.getElementById('setCooldown').value, 10) || 0);
+  const maxPerTable = Math.max(1, parseInt(document.getElementById('setMax').value, 10) || 1);
+  const playHistoryWhenIdle = document.getElementById('setHistory').checked;
+  try {
+    const r = await api('saveSettings', { cooldownMin, maxPerTable, playHistoryWhenIdle });
+    if (r.success) {
+      settings.cooldownMin = r.cooldownMin;
+      settings.maxPerTable = r.maxPerTable;
+      settings.playHistoryWhenIdle = r.playHistoryWhenIdle;
+    }
+  } catch (e) {}
+  closeSettings();
+  historyList = [];
+  tick();
 }
 
 // ---- YouTube IFrame API ----
@@ -283,6 +398,7 @@ function onPlayerStateChange(e) {
 
 // 影片無法播放（被移除、私人、或禁止內嵌）→ 自動標記播畢並跳下一首
 function onPlayerError(e) {
+  if (currentSong && currentSong.isHistory) { currentSong = null; setTimeout(tick, 600); return; }
   if (currentSong) {
     api('markPlayed', { id: currentSong.id });
     currentSong = null;
@@ -296,11 +412,14 @@ async function unlockAndStart() {
   if (!ytPlayer) await initPlayer();
   // 在使用者點擊的手勢內呼叫一次 play，解鎖瀏覽器的自動播放限制（確保出聲）
   try { ytPlayer.playVideo(); } catch (e) {}
+  await loadSettings();
   tick();
   setInterval(tick, 5000);
+  setInterval(loadSettings, 15000);
 }
 
 async function handleSongEnded() {
+  if (currentSong && currentSong.isHistory) { currentSong = null; tick(); return; }
   if (currentSong) {
     await api('markPlayed', { id: currentSong.id });
     currentSong = null;
@@ -309,6 +428,7 @@ async function handleSongEnded() {
 }
 
 async function skipCurrent() {
+  if (currentSong && currentSong.isHistory) { currentSong = null; tick(); return; }
   if (currentSong) {
     await api('markPlayed', { id: currentSong.id });
     currentSong = null;
@@ -331,23 +451,31 @@ async function tick() {
     queueCache = data.queue;
     renderSidebar();
 
+    const playing = queueCache.find(s => s.status === 'playing');
+    const nextWaiting = queueCache.find(s => s.status === 'waiting');
+    const realNext = playing || nextWaiting;
+
+    // 正在播歷史歌單，但有人點歌了 → 切回真正的點歌
+    if (currentSong && currentSong.isHistory && realNext) {
+      currentSong = null;
+    }
+
     if (!currentSong) {
-      const playing = queueCache.find(s => s.status === 'playing');
-      const nextWaiting = queueCache.find(s => s.status === 'waiting');
-      const next = playing || nextWaiting;
-      if (next) {
-        currentSong = next;
-        showPlayingView(next);
+      if (realNext) {
+        currentSong = realNext;
+        showPlayingView(realNext);
         if (playerReady && ytPlayer && ytPlayer.loadVideoById) {
-          ytPlayer.loadVideoById(next.videoId);
+          ytPlayer.loadVideoById(realNext.videoId);
         }
-        if (next.status !== 'playing') {
-          await api('markPlaying', { id: next.id });
+        if (realNext.status !== 'playing') {
+          await api('markPlaying', { id: realNext.id });
         }
+      } else if (settings.playHistoryWhenIdle) {
+        await playHistoryTrack();
       } else {
         showIdleView();
       }
-    } else {
+    } else if (!currentSong.isHistory) {
       // 確認目前播放的歌仍存在於佇列（沒被刪除/清空）
       const stillThere = queueCache.find(s => s.id === currentSong.id);
       if (!stillThere) {
@@ -359,11 +487,25 @@ async function tick() {
   } catch (e) {}
 }
 
+// 無佇列時，從播放過的歷史歌單隨機挑一首墊檔
+async function playHistoryTrack() {
+  if (!historyList.length) {
+    try { const r = await api('getHistory'); historyList = (r.success && r.history) ? r.history : []; } catch (e) {}
+  }
+  if (!historyList.length) { showIdleView(); return; }
+  const pick = historyList[Math.floor(Math.random() * historyList.length)];
+  currentSong = { id: '__history__', videoId: pick.videoId, title: pick.title, table: pick.table, isHistory: true };
+  showPlayingView(currentSong);
+  if (playerReady && ytPlayer && ytPlayer.loadVideoById) {
+    ytPlayer.loadVideoById(pick.videoId);
+  }
+}
+
 function showPlayingView(song) {
   document.getElementById('idleView').style.display = 'none';
   document.getElementById('playingView').style.display = 'flex';
   document.getElementById('nowTitle').textContent = song.title;
-  document.getElementById('nowTable').textContent = song.table + '桌 點播';
+  document.getElementById('nowTable').textContent = song.isHistory ? '🎞️ 歷史回放' : (song.table + '桌 點播');
   const art = document.getElementById('nowArt');
   if (art) art.src = 'https://i.ytimg.com/vi/' + song.videoId + '/hqdefault.jpg';
 }

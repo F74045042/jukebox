@@ -150,6 +150,7 @@
   .add-btn:hover{ filter:brightness(1.07); }
   .add-btn:active{ transform:scale(0.92); }
   .add-btn:disabled{ opacity:0.3; }
+  body.cooling .add-btn{ opacity:0.35; pointer-events:none; }
 
   .toast{
     position:fixed; bottom:26px; left:50%; transform:translateX(-50%);
@@ -221,6 +222,7 @@
     <div class="pill" id="tablePill">桌號 <b id="tableNo">--</b></div>
     <div class="pill" id="tableQuotaPill">本桌可點 <b id="tableRemaining">-</b> 首</div>
     <div class="pill" id="quotaPill">今日搜尋 <b id="searchRemaining">-</b></div>
+    <div class="pill bad" id="cooldownPill" style="display:none;">冷卻中 <b id="cooldownTime">0:00</b></div>
   </div>
 </div>
 
@@ -294,6 +296,22 @@ function switchTab(name) {
   document.getElementById('linkPane').style.display = name === 'link' ? '' : 'none';
 }
 
+// ---- 冷卻倒數 ----
+let cooldownRemaining = 0;
+function fmtTime(sec) { const m = Math.floor(sec / 60), s = sec % 60; return m + ':' + String(s).padStart(2, '0'); }
+function renderCooldown() {
+  const pill = document.getElementById('cooldownPill');
+  if (cooldownRemaining > 0) {
+    pill.style.display = '';
+    document.getElementById('cooldownTime').textContent = fmtTime(cooldownRemaining);
+    document.body.classList.add('cooling');
+  } else {
+    pill.style.display = 'none';
+    document.body.classList.remove('cooling');
+  }
+}
+setInterval(() => { if (cooldownRemaining > 0) { cooldownRemaining--; renderCooldown(); } }, 1000);
+
 // ---- 配額 / 桌況顯示 ----
 async function refreshQuota() {
   try {
@@ -307,6 +325,8 @@ async function refreshTableStatus() {
     if (t.success) {
       document.getElementById('tableRemaining').textContent = t.remaining;
       document.getElementById('tableQuotaPill').className = 'pill' + (t.remaining === 0 ? ' bad' : t.remaining === 1 ? ' warn' : '');
+      cooldownRemaining = t.cooldownRemaining || 0;
+      renderCooldown();
     }
   } catch (e) {}
 }
@@ -382,6 +402,10 @@ async function doLinkLookup() {
 
 // ---- 加入佇列 ----
 async function addToQueue(videoId, title, thumbnail, btnEl) {
+  if (cooldownRemaining > 0) {
+    showToast('冷卻中，請等 ' + fmtTime(cooldownRemaining) + ' 後再點', true);
+    return;
+  }
   btnEl.disabled = true;
   try {
     const data = await api('addSong', { table: TABLE, videoId, title, thumbnail });
@@ -390,6 +414,7 @@ async function addToQueue(videoId, title, thumbnail, btnEl) {
       refreshTableStatus();
       loadQueue();
     } else {
+      if (data.error === 'COOLDOWN' && data.cooldownRemaining) { cooldownRemaining = data.cooldownRemaining; renderCooldown(); }
       showToast(data.message || data.error || '加入失敗', true);
       btnEl.disabled = false;
     }
