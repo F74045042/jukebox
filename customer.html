@@ -6,118 +6,134 @@
 <title>點唱機 ｜ 點一首歌</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;900&family=Manrope:wght@500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0a0a0f;
-    --surface:rgba(255,255,255,0.045);
-    --surface-2:rgba(255,255,255,0.08);
-    --border:rgba(255,255,255,0.09);
-    --border-strong:rgba(255,255,255,0.16);
-    --text:#f3f2f7;
-    --muted:#9b9aab;
-    --faint:#6c6b7d;
-    --accent:#8b5cf6;
-    --accent-2:#ec4899;
-    --grad:linear-gradient(135deg,#8b5cf6,#ec4899);
-    --glow:rgba(139,92,246,0.45);
-    --danger:#ff5f6d;
-    --gold:#ffd24a;
+    --bg:#0e0b09;
+    --text:#f4ece2;
+    --muted:#ab9d8c;
+    --faint:#7e7060;
+    --border:rgba(255,255,255,0.10);
+    --border-strong:rgba(255,255,255,0.17);
+    --ember:#f0743c;
+    --amber:#e9b06a;
+    --grad:linear-gradient(135deg,#f0a24c,#ef6a35);
+    --glow:rgba(240,116,60,0.5);
+    --danger:#ff6a5f;
+    --gold:#f0c77e;
+    --glass:linear-gradient(180deg,rgba(255,255,255,0.085),rgba(255,255,255,0.03));
+    --glass-hi:linear-gradient(180deg,rgba(255,255,255,0.11),rgba(255,255,255,0.04));
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
-    background:
-      radial-gradient(900px 520px at 50% -8%, #221634 0%, transparent 58%),
-      radial-gradient(700px 480px at 100% 100%, #1a1026 0%, transparent 55%),
-      var(--bg);
+    background:var(--bg);
     color:var(--text);
-    font-family:'Noto Sans TC', sans-serif;
+    font-family:'Noto Sans TC','Manrope',sans-serif;
     min-height:100vh;
     padding-bottom:48px;
     -webkit-font-smoothing:antialiased;
   }
+  body::before{
+    content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(100% 60% at 28% -10%, rgba(227,168,102,0.14) 0%, transparent 55%),
+      radial-gradient(135% 55% at 50% 116%, rgba(232,110,55,0.22) 0%, transparent 60%),
+      radial-gradient(80% 48% at 92% 102%, rgba(176,60,40,0.16) 0%, transparent 58%);
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
 
   .topbar{
     position:sticky; top:0; z-index:10;
-    background:rgba(10,10,15,0.72);
-    backdrop-filter:blur(18px) saturate(140%);
-    -webkit-backdrop-filter:blur(18px) saturate(140%);
+    background:rgba(14,11,9,0.6);
+    backdrop-filter:blur(20px) saturate(1.5);
+    -webkit-backdrop-filter:blur(20px) saturate(1.5);
     border-bottom:1px solid var(--border);
     padding:16px 18px 14px;
   }
   .brand{ display:flex; align-items:center; gap:10px; }
-  .brand .mark{
-    font-family:'Space Grotesk', sans-serif;
-    font-weight:700; font-size:21px; letter-spacing:.5px;
-    background:var(--grad); -webkit-background-clip:text; background-clip:text;
-    -webkit-text-fill-color:transparent;
+  .brand .dot{
+    width:10px; height:10px; border-radius:50%; background:var(--ember);
+    box-shadow:0 0 14px rgba(240,116,60,0.85); flex-shrink:0;
   }
-  .brand .sub{ font-size:12.5px; color:var(--muted); }
+  .brand .mark{
+    font-family:'Noto Sans TC', sans-serif;
+    font-weight:700; font-size:20px; letter-spacing:1px; color:var(--text);
+  }
+  .brand .wordmark{
+    font-family:'Manrope', sans-serif; font-size:10px; letter-spacing:3px;
+    color:var(--faint); align-self:flex-end; padding-bottom:4px;
+  }
+  .sub{ font-size:12.5px; color:var(--muted); margin-top:6px; }
 
-  .status-row{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .status-row{ display:flex; gap:8px; margin-top:13px; flex-wrap:wrap; }
   .pill{
     font-size:12px; padding:7px 12px; border-radius:999px;
-    background:var(--surface); border:1px solid var(--border);
+    background:var(--glass); border:1px solid var(--border);
     color:var(--muted); display:flex; align-items:center; gap:6px;
-    backdrop-filter:blur(6px);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
   }
-  .pill b{ color:var(--text); font-weight:700; }
-  .pill.warn{ border-color:rgba(255,210,74,0.4); }
+  .pill b{ color:var(--text); font-weight:500; font-family:'DM Mono',monospace; font-size:12.5px; }
+  .pill.warn{ border-color:rgba(240,199,126,0.45); background:rgba(240,199,126,0.1); }
   .pill.warn b{ color:var(--gold); }
-  .pill.bad{ border-color:rgba(255,95,109,0.45); }
+  .pill.bad{ border-color:rgba(255,106,95,0.5); background:rgba(255,106,95,0.1); }
   .pill.bad b{ color:var(--danger); }
 
   .wrap{ padding:20px 18px; max-width:540px; margin:0 auto; }
 
   .tabs{
     display:flex; gap:5px; margin-bottom:18px; padding:5px;
-    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    background:var(--glass); border:1px solid var(--border); border-radius:15px;
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
   }
   .tab{
-    flex:1; text-align:center; padding:11px 0; border-radius:10px;
+    flex:1; text-align:center; padding:11px 0; border-radius:11px;
     color:var(--muted); font-weight:700; font-size:14px; cursor:pointer;
     transition:all .18s ease; border:1px solid transparent;
   }
   .tab.active{
-    background:var(--grad); color:#fff;
-    box-shadow:0 6px 20px -6px var(--glow);
+    background:rgba(240,116,60,0.17); color:#ffb088;
+    border-color:rgba(240,116,60,0.48);
+    box-shadow:0 0 22px -6px var(--glow);
   }
 
   .search-box{ display:flex; gap:9px; margin-bottom:16px; }
   input[type=text]{
     flex:1; padding:14px 15px; border-radius:13px;
-    border:1px solid var(--border); background:var(--surface);
+    border:1px solid var(--border); background:var(--glass);
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
     color:var(--text); font-size:15px; font-family:inherit; transition:border-color .15s, box-shadow .15s;
   }
   input[type=text]::placeholder{ color:var(--faint); }
   input[type=text]:focus{
-    outline:none; border-color:var(--accent);
-    box-shadow:0 0 0 3px rgba(139,92,246,0.18);
+    outline:none; border-color:var(--ember);
+    box-shadow:0 0 0 3px rgba(240,116,60,0.2);
   }
   button.go{
     padding:0 20px; border-radius:13px; border:none;
-    background:var(--grad); color:#fff; font-weight:700; font-size:14.5px;
-    cursor:pointer; white-space:nowrap; box-shadow:0 6px 20px -8px var(--glow);
-    transition:transform .12s, filter .12s;
+    background:var(--grad); color:#2a1206; font-weight:700; font-size:14.5px;
+    cursor:pointer; white-space:nowrap; box-shadow:0 8px 24px -10px var(--glow);
+    transition:transform .12s, filter .12s; font-family:inherit;
   }
   button.go:active{ transform:scale(0.96); }
-  button.go:hover{ filter:brightness(1.08); }
+  button.go:hover{ filter:brightness(1.06); }
   button.go:disabled{ opacity:0.45; }
 
-  .empty{ text-align:center; color:var(--muted); padding:44px 12px; font-size:14px; line-height:1.85; }
-  .empty .icon{ font-size:36px; display:block; margin-bottom:12px; opacity:.9; }
+  .empty{ text-align:center; color:var(--muted); padding:40px 12px; font-size:14px; line-height:1.9; }
 
   .result-card{
-    display:flex; gap:13px; background:var(--surface);
-    border:1px solid var(--border); border-radius:16px;
+    display:flex; gap:13px;
+    background:var(--glass);
+    backdrop-filter:blur(22px) saturate(1.4); -webkit-backdrop-filter:blur(22px) saturate(1.4);
+    border:1px solid var(--border-strong); border-radius:17px;
     padding:11px; margin-bottom:11px; align-items:center;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.22), 0 16px 36px -22px rgba(0,0,0,0.7);
     transition:transform .14s, border-color .14s, background .14s;
   }
-  .result-card:hover{ transform:translateY(-1px); border-color:var(--border-strong); background:var(--surface-2); }
+  .result-card:hover{ transform:translateY(-1px); background:var(--glass-hi); }
   .result-card img{
-    width:62px; height:62px; border-radius:11px; object-fit:cover; flex-shrink:0;
-    box-shadow:0 4px 14px rgba(0,0,0,0.4);
+    width:62px; height:62px; border-radius:12px; object-fit:cover; flex-shrink:0;
+    box-shadow:0 4px 14px rgba(0,0,0,0.45);
   }
   .result-info{ flex:1; min-width:0; }
   .result-info .title{
@@ -127,74 +143,91 @@
   .result-info .channel{ font-size:12px; color:var(--muted); margin-top:4px; }
   .add-btn{
     flex-shrink:0; width:44px; height:44px; border-radius:13px;
-    border:none; background:var(--surface-2); color:var(--text);
+    border:none; background:var(--grad); color:#2a1206;
     font-size:24px; font-weight:400; cursor:pointer; line-height:1;
-    border:1px solid var(--border-strong); transition:all .14s;
+    box-shadow:0 6px 18px -6px var(--glow); transition:all .14s;
   }
-  .add-btn:hover{ background:var(--grad); border-color:transparent; color:#fff; }
+  .add-btn:hover{ filter:brightness(1.07); }
   .add-btn:active{ transform:scale(0.92); }
   .add-btn:disabled{ opacity:0.3; }
 
   .toast{
     position:fixed; bottom:26px; left:50%; transform:translateX(-50%);
-    background:rgba(28,24,40,0.92); color:var(--text);
+    background:rgba(26,19,13,0.92); color:var(--text);
     border:1px solid var(--border-strong);
     padding:13px 22px; border-radius:999px; font-size:14px; font-weight:600;
-    box-shadow:0 10px 34px rgba(0,0,0,0.55); backdrop-filter:blur(10px);
+    box-shadow:0 10px 34px rgba(0,0,0,0.6); backdrop-filter:blur(12px);
     opacity:0; transition:opacity .25s ease, transform .25s ease;
     pointer-events:none; z-index:50; max-width:86vw; text-align:center;
   }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(-6px); }
-  .toast.error{ background:rgba(120,30,40,0.92); border-color:rgba(255,95,109,0.5); }
+  .toast.error{ background:rgba(90,28,22,0.94); border-color:rgba(255,106,95,0.5); }
 
   .section-title{
-    font-size:12.5px; color:var(--muted); margin:26px 0 12px; letter-spacing:1.5px;
-    text-transform:uppercase; display:flex; align-items:center; gap:10px; font-weight:700;
+    font-size:12px; color:var(--muted); margin:26px 0 12px; letter-spacing:3px;
+    display:flex; align-items:center; gap:12px; font-weight:700;
   }
   .section-title::after{ content:''; flex:1; height:1px; background:var(--border); }
 
   .queue-row{
-    display:flex; gap:11px; align-items:center; padding:11px 0;
-    border-bottom:1px solid var(--border); font-size:14px;
+    display:flex; gap:12px; align-items:center; padding:11px 8px;
+    border-radius:12px; font-size:14px; margin-bottom:2px;
+    transition:background .14s;
   }
-  .queue-row:last-child{ border-bottom:none; }
+  .queue-row.playing{ background:rgba(240,116,60,0.1); border:1px solid rgba(240,116,60,0.26); }
   .queue-row .num{
-    width:24px; height:24px; border-radius:8px; background:var(--surface-2);
+    width:28px; height:28px; border-radius:9px; background:var(--glass);
     color:var(--muted); display:flex; align-items:center; justify-content:center;
-    font-size:11px; font-weight:700; flex-shrink:0;
+    font-size:12px; font-weight:700; flex-shrink:0; font-family:'DM Mono',monospace;
+    border:1px solid var(--border);
   }
-  .queue-row.playing .num{ background:var(--grad); color:#fff; box-shadow:0 2px 10px -2px var(--glow); }
-  .queue-row .t{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .queue-row.playing .t{ color:#fff; font-weight:500; }
-  .queue-row .tb{ color:var(--muted); font-size:12px; flex-shrink:0; }
+  .queue-row.playing .num{ background:none; border:none; }
+  .vinyl-mini{
+    width:28px; height:28px; border-radius:50%; position:relative; flex-shrink:0;
+    background:repeating-radial-gradient(circle at 50% 50%, #0a0a0a 0 1px, #232120 1px 2.3px);
+    box-shadow:inset 0 0 7px rgba(0,0,0,0.75), 0 2px 8px rgba(0,0,0,0.5);
+    animation:spin 9s linear infinite;
+  }
+  .vinyl-mini::after{
+    content:''; position:absolute; inset:0; margin:auto;
+    width:10px; height:10px; border-radius:50%;
+    background:linear-gradient(135deg,#f0a24c,#ef6a35);
+    box-shadow:0 0 0 1px rgba(0,0,0,0.4);
+  }
+  .queue-row .t{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); }
+  .queue-row.playing .t{ color:var(--text); font-weight:500; }
+  .queue-row .tb{ color:var(--faint); font-size:12px; flex-shrink:0; }
+  .queue-row.playing .tb{ color:#ffb088; }
 
   .loader{ text-align:center; padding:22px; color:var(--muted); font-size:13px; }
   .spin{
     display:inline-block; width:16px; height:16px; border:2px solid var(--border);
-    border-top-color:var(--accent); border-radius:50%;
-    animation:spin .7s linear infinite; vertical-align:middle; margin-right:8px;
+    border-top-color:var(--ember); border-radius:50%;
+    animation:spinload .7s linear infinite; vertical-align:middle; margin-right:8px;
   }
-  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @keyframes spinload{ to{ transform:rotate(360deg); } }
 </style>
 </head>
 <body>
 
 <div class="topbar">
   <div class="brand">
-    <span class="mark">🎵 點唱機</span>
-    <span class="sub">掃桌上 QR 點一首你想聽的歌</span>
+    <span class="dot"></span>
+    <span class="mark">點唱機</span>
+    <span class="wordmark">JUKEBOX</span>
   </div>
+  <div class="sub">掃桌上 QR，點一首你想聽的歌</div>
   <div class="status-row">
-    <div class="pill" id="tablePill">桌號：<b id="tableNo">--</b></div>
-    <div class="pill" id="tableQuotaPill">本桌可點：<b id="tableRemaining">-</b> 首</div>
-    <div class="pill" id="quotaPill">今日搜尋剩餘：<b id="searchRemaining">-</b> 次</div>
+    <div class="pill" id="tablePill">桌號 <b id="tableNo">--</b></div>
+    <div class="pill" id="tableQuotaPill">本桌可點 <b id="tableRemaining">-</b> 首</div>
+    <div class="pill" id="quotaPill">今日搜尋 <b id="searchRemaining">-</b></div>
   </div>
 </div>
 
 <div class="wrap">
   <div class="tabs">
-    <div class="tab active" id="tabSearch" onclick="switchTab('search')">🔍 搜尋歌曲</div>
-    <div class="tab" id="tabLink" onclick="switchTab('link')">🔗 貼上連結</div>
+    <div class="tab active" id="tabSearch" onclick="switchTab('search')">搜尋歌曲</div>
+    <div class="tab" id="tabLink" onclick="switchTab('link')">貼上連結</div>
   </div>
 
   <div id="searchPane">
@@ -212,7 +245,6 @@
     </div>
     <div id="linkResult"></div>
     <div class="empty" style="padding:24px 12px;">
-      <span class="icon">💡</span>
       在 YouTube App 找到想點的歌，按「分享」→「複製連結」，貼到這裡即可，不會占用搜尋次數。
     </div>
   </div>
@@ -313,7 +345,7 @@ async function doSearch() {
           <div class="title">${escapeHtml(r.title)}</div>
           <div class="channel">${escapeHtml(r.channel)}</div>
         </div>
-        <button class="add-btn" onclick='addToQueue(${JSON.stringify(r.videoId)}, ${JSON.stringify(r.title)}, ${JSON.stringify(r.thumbnail)}, this)'>＋</button>
+        <button class="add-btn" onclick="addToQueue(${attrJson(r.videoId)}, ${attrJson(r.title)}, ${attrJson(r.thumbnail)}, this)">＋</button>
       </div>
     `).join('');
   } catch (e) {
@@ -340,7 +372,7 @@ async function doLinkLookup() {
         <div class="result-info">
           <div class="title">${escapeHtml(data.title)}</div>
         </div>
-        <button class="add-btn" onclick='addToQueue(${JSON.stringify(data.videoId)}, ${JSON.stringify(data.title)}, ${JSON.stringify(data.thumbnail)}, this)'>＋</button>
+        <button class="add-btn" onclick="addToQueue(${attrJson(data.videoId)}, ${attrJson(data.title)}, ${attrJson(data.thumbnail)}, this)">＋</button>
       </div>
     `;
   } catch (e) {
@@ -354,7 +386,7 @@ async function addToQueue(videoId, title, thumbnail, btnEl) {
   try {
     const data = await api('addSong', { table: TABLE, videoId, title, thumbnail });
     if (data.success) {
-      showToast('🎶 已加入佇列！排在第 ' + data.position + ' 位');
+      showToast('已加入佇列！排在第 ' + data.position + ' 位');
       refreshTableStatus();
       loadQueue();
     } else {
@@ -373,12 +405,12 @@ async function loadQueue() {
     const data = await api('getQueue');
     const el = document.getElementById('queueList');
     if (!data.success || !data.queue.length) {
-      el.innerHTML = '<div class="empty"><span class="icon">🎤</span>目前還沒有人點歌，當第一個吧！</div>';
+      el.innerHTML = '<div class="empty">目前還沒有人點歌，當第一個吧！</div>';
       return;
     }
     el.innerHTML = data.queue.map((s, i) => `
       <div class="queue-row ${s.status === 'playing' ? 'playing' : ''}">
-        <div class="num">${s.status === 'playing' ? '▶' : i + 1}</div>
+        <div class="num">${s.status === 'playing' ? '<span class="vinyl-mini"></span>' : (i + 1)}</div>
         <div class="t">${escapeHtml(s.title)}</div>
         <div class="tb">${escapeHtml(String(s.table))}桌</div>
       </div>
@@ -390,6 +422,11 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str == null ? '' : str;
   return div.innerHTML;
+}
+
+// 安全地把值塞進 onclick="..."（雙引號屬性）：歌名可能含撇號/引號/&
+function attrJson(v) {
+  return JSON.stringify(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
 
 // ---- 初始化 ----
