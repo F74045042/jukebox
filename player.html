@@ -201,12 +201,18 @@
     background:rgba(8,8,12,0.8); backdrop-filter:blur(10px);
   }
   .settings-card{
-    width:100%; max-width:420px; background:#17120f;
+    width:100%; max-width:430px; max-height:88vh; overflow-y:auto; background:#17120f;
     border:1px solid var(--border-strong); border-radius:20px; padding:26px 24px;
     box-shadow:0 30px 80px -20px rgba(0,0,0,0.85);
   }
   .settings-card h3{ margin:0 0 6px; font-size:20px; font-weight:700; }
   .settings-card .desc{ font-size:13px; color:var(--muted); margin-bottom:22px; }
+  .sec-label{
+    font-size:11.5px; letter-spacing:2px; color:var(--ember); font-weight:700;
+    text-transform:uppercase; margin:22px 0 14px; padding-bottom:8px;
+    border-bottom:1px solid var(--border);
+  }
+  .sec-label:first-of-type{ margin-top:0; }
   .field{ margin-bottom:20px; }
   .field > label{ display:block; font-size:14.5px; font-weight:600; margin-bottom:8px; }
   .field .hint2{ font-size:12px; color:var(--faint); font-weight:400; margin-top:5px; line-height:1.5; }
@@ -244,16 +250,39 @@
   <div class="settings-card">
     <h3>播放設定</h3>
     <div class="desc">這些設定全店共用、即時生效</div>
+
+    <div class="sec-label">點歌規則</div>
     <div class="field">
-      <label>點歌冷卻時間（分鐘）</label>
-      <input type="number" id="setCooldown" min="0" step="1">
-      <div class="hint2">每桌點完一首後，要等這麼久才能再點。0 = 不限制。</div>
-    </div>
-    <div class="field">
-      <label>每桌歌曲上限</label>
+      <label>每桌歌曲上限（可佇列幾首）</label>
       <input type="number" id="setMax" min="1" step="1">
       <div class="hint2">每桌同時最多可有幾首待播／播放中的歌。</div>
     </div>
+    <div class="field">
+      <label>點滿後冷卻時間（分鐘）</label>
+      <input type="number" id="setCooldown" min="0" step="1">
+      <div class="hint2">點滿上限後要等這麼久才能再點。0 = 不限制。</div>
+    </div>
+
+    <div class="sec-label">搜尋</div>
+    <div class="field">
+      <label>搜尋顯示筆數</label>
+      <input type="number" id="setSearchCount" min="1" max="20" step="1">
+      <div class="hint2">客人搜尋時一次顯示幾首（1～20）。</div>
+    </div>
+    <div class="field">
+      <label>每日搜尋次數上限</label>
+      <input type="number" id="setDailyLimit" min="1" step="1">
+      <div class="hint2">YouTube 免費額度約每天 100 次，建議留緩衝（如 95）。用完客人可改用貼連結。</div>
+    </div>
+    <div class="field switch-row">
+      <div>
+        <label style="margin:0;">只搜音樂類別</label>
+        <div class="hint2">開＝只顯示歌曲，過濾教學/開箱/直播；關＝搜尋全部影片。</div>
+      </div>
+      <label class="switch"><input type="checkbox" id="setMusicOnly"><span class="slider"></span></label>
+    </div>
+
+    <div class="sec-label">播放</div>
     <div class="field switch-row">
       <div>
         <label style="margin:0;">無佇列時播放歷史歌單</label>
@@ -320,7 +349,7 @@ let playerReady = false;
 let currentSong = null;
 let started = false;
 let queueCache = [];
-let settings = { cooldownMin: 0, maxPerTable: 3, playHistoryWhenIdle: false };
+let settings = { cooldownMin: 0, maxPerTable: 3, playHistoryWhenIdle: false, dailySearchLimit: 95, searchCount: 8, musicOnly: true };
 let historyList = [];
 
 async function api(action, params = {}) {
@@ -339,6 +368,9 @@ async function loadSettings() {
       settings.cooldownMin = s.cooldownMin;
       settings.maxPerTable = s.maxPerTable;
       settings.playHistoryWhenIdle = s.playHistoryWhenIdle;
+      settings.dailySearchLimit = s.dailySearchLimit;
+      settings.searchCount = s.searchCount;
+      settings.musicOnly = s.musicOnly;
     }
   } catch (e) {}
 }
@@ -346,6 +378,9 @@ function openSettings() {
   document.getElementById('setCooldown').value = settings.cooldownMin;
   document.getElementById('setMax').value = settings.maxPerTable;
   document.getElementById('setHistory').checked = settings.playHistoryWhenIdle;
+  document.getElementById('setSearchCount').value = settings.searchCount;
+  document.getElementById('setDailyLimit').value = settings.dailySearchLimit;
+  document.getElementById('setMusicOnly').checked = settings.musicOnly;
   document.getElementById('settingsOverlay').style.display = 'flex';
 }
 function closeSettings() { document.getElementById('settingsOverlay').style.display = 'none'; }
@@ -353,12 +388,18 @@ async function saveSettingsPanel() {
   const cooldownMin = Math.max(0, parseInt(document.getElementById('setCooldown').value, 10) || 0);
   const maxPerTable = Math.max(1, parseInt(document.getElementById('setMax').value, 10) || 1);
   const playHistoryWhenIdle = document.getElementById('setHistory').checked;
+  const searchCount = Math.min(20, Math.max(1, parseInt(document.getElementById('setSearchCount').value, 10) || 8));
+  const dailySearchLimit = Math.max(1, parseInt(document.getElementById('setDailyLimit').value, 10) || 1);
+  const musicOnly = document.getElementById('setMusicOnly').checked;
   try {
-    const r = await api('saveSettings', { cooldownMin, maxPerTable, playHistoryWhenIdle });
+    const r = await api('saveSettings', { cooldownMin, maxPerTable, playHistoryWhenIdle, searchCount, dailySearchLimit, musicOnly });
     if (r.success) {
       settings.cooldownMin = r.cooldownMin;
       settings.maxPerTable = r.maxPerTable;
       settings.playHistoryWhenIdle = r.playHistoryWhenIdle;
+      settings.dailySearchLimit = r.dailySearchLimit;
+      settings.searchCount = r.searchCount;
+      settings.musicOnly = r.musicOnly;
     }
   } catch (e) {}
   closeSettings();
