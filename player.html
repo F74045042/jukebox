@@ -308,6 +308,8 @@
 <div class="sidebar">
   <h2>接下來播放</h2>
   <div id="upNext"></div>
+  <h2 style="margin-top:30px;">🎞️ 歷史歌單</h2>
+  <div id="historyList"></div>
 </div>
 
 <script>
@@ -413,9 +415,11 @@ async function unlockAndStart() {
   // 在使用者點擊的手勢內呼叫一次 play，解鎖瀏覽器的自動播放限制（確保出聲）
   try { ytPlayer.playVideo(); } catch (e) {}
   await loadSettings();
+  refreshHistory();
   tick();
   setInterval(tick, 5000);
   setInterval(loadSettings, 15000);
+  setInterval(refreshHistory, 20000);
 }
 
 async function handleSongEnded() {
@@ -538,6 +542,30 @@ function renderSidebar() {
 async function deleteSong(id) {
   await api('deleteSong', { id });
   tick();
+}
+
+// ---- 歷史歌單顯示 ----
+async function refreshHistory() {
+  try {
+    const r = await api('getHistory');
+    if (r.success) { historyList = r.history || []; renderHistory(); }
+  } catch (e) {}
+}
+function renderHistory() {
+  const el = document.getElementById('historyList');
+  if (!historyList.length) {
+    el.innerHTML = '<div class="empty-q">還沒有播放紀錄</div>';
+    return;
+  }
+  el.innerHTML = historyList.map((s) => `
+    <div class="qrow">
+      <img src="${s.thumbnail || ('https://i.ytimg.com/vi/' + s.videoId + '/default.jpg')}">
+      <div class="info">
+        <div class="title">${escapeHtml(s.title)}</div>
+        <div class="table">${escapeHtml(String(s.table))}桌</div>
+      </div>
+    </div>
+  `).join('');
 }
 
 function escapeHtml(str) {
