@@ -441,12 +441,9 @@ function onPlayerStateChange(e) {
 
 // 影片無法播放（被移除、私人、或禁止內嵌）→ 自動標記播畢並跳下一首
 function onPlayerError(e) {
-  if (currentSong && currentSong.isHistory) { currentSong = null; setTimeout(tick, 600); return; }
-  if (currentSong) {
-    api('markPlayed', { id: currentSong.id });
-    currentSong = null;
-  }
-  setTimeout(tick, 600);
+  // 影片無法播放（被移除、私人、或禁止內嵌）→ 立即跳下一首
+  if (!currentSong) { setTimeout(tick, 600); return; }
+  advanceAfter(currentSong.id, currentSong.isHistory);
 }
 
 async function unlockAndStart() {
@@ -463,29 +460,26 @@ async function unlockAndStart() {
   setInterval(refreshHistory, 20000);
 }
 
-async function handleSongEnded() {
-  if (currentSong && currentSong.isHistory) { currentSong = null; tick(); return; }
-  if (currentSong) {
-    await api('markPlayed', { id: currentSong.id });
-    currentSong = null;
-  }
-  tick();
+function handleSongEnded() {
+  if (!currentSong) { tick(); return; }
+  advanceAfter(currentSong.id, currentSong.isHistory);
 }
 
-async function skipCurrent() {
-  if (currentSong && currentSong.isHistory) { currentSong = null; tick(); return; }
-  if (currentSong) {
-    await api('markPlayed', { id: currentSong.id });
-    currentSong = null;
-    tick();
-  }
+function skipCurrent() {
+  if (!currentSong) return;
+  advanceAfter(currentSong.id, currentSong.isHistory);
 }
 
 async function clearAll() {
   if (!confirm('確定要清空整個佇列嗎？')) return;
-  await api('clearQueue');
+  // 樂觀：立刻清空畫面並停止播放，背景通知後端，稍後再校正（若開啟歷史回放會接手）
+  queueCache = [];
   currentSong = null;
-  tick();
+  renderSidebar();
+  if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
+  showIdleView();
+  api('clearQueue').catch(() => {});
+  setTimeout(tick, 800);
 }
 
 // ---- 主迴圈：撈佇列，決定要播什麼 ----
@@ -560,6 +554,33 @@ function showIdleView() {
   document.getElementById('playingView').style.display = 'none';
 }
 
+// 用已快取的佇列「立即」播下一首（不必等 getQueue），讓跳過/換歌瞬間反應、減少歌曲間空白
+function advanceLocally() {
+  const realNext = queueCache.find(s => s.status === 'waiting' || s.status === 'playing');
+  if (realNext) {
+    currentSong = realNext;
+    showPlayingView(realNext);
+    if (playerReady && ytPlayer && ytPlayer.loadVideoById) ytPlayer.loadVideoById(realNext.videoId);
+    if (realNext.status !== 'playing') { realNext.status = 'playing'; api('markPlaying', { id: realNext.id }).catch(() => {}); }
+  } else if (settings.playHistoryWhenIdle) {
+    playHistoryTrack();
+  } else {
+    currentSong = null;
+    showIdleView();
+  }
+  renderSidebar();
+}
+
+// 結束/跳過目前這首後前進：把它從快取移除並背景通知後端，再立即播下一首
+function advanceAfter(endedId, wasHistory) {
+  if (!wasHistory && endedId) {
+    queueCache = queueCache.filter(s => s.id !== endedId);
+    api('markPlayed', { id: endedId }).catch(() => {});
+  }
+  currentSong = null;
+  advanceLocally();
+}
+
 function renderSidebar() {
   const upNext = queueCache.filter(s => !currentSong || s.id !== currentSong.id);
   const el = document.getElementById('upNext');
@@ -580,9 +601,11 @@ function renderSidebar() {
   `).join('');
 }
 
-async function deleteSong(id) {
-  await api('deleteSong', { id });
-  tick();
+function deleteSong(id) {
+  // 樂觀移除：立刻從快取拿掉並重畫，背景再通知後端
+  queueCache = queueCache.filter(s => s.id !== id);
+  renderSidebar();
+  api('deleteSong', { id }).catch(() => {});
 }
 
 // ---- 歷史歌單顯示 ----
