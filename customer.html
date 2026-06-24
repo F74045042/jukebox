@@ -193,6 +193,12 @@
   .now-playing .npeq span:nth-child(3){ animation-delay:.5s; }
   .now-playing .npeq span:nth-child(4){ animation-delay:.15s; }
   @keyframes eqc{ 0%,100%{ height:5px; } 50%{ height:16px; } }
+  .now-playing .np-vote{
+    flex-shrink:0; border:1px solid rgba(240,116,60,0.55); background:rgba(240,116,60,0.14);
+    color:#ffb088; font-size:12.5px; font-weight:700; padding:9px 12px; border-radius:11px;
+    cursor:pointer; white-space:nowrap; font-family:inherit;
+  }
+  .now-playing .np-vote:active{ transform:scale(0.95); }
 
   .queue-row{
     display:flex; gap:12px; align-items:center; padding:11px 8px;
@@ -325,6 +331,7 @@ function switchTab(name) {
 // ---- 冷卻倒數 ----
 let cooldownRemaining = 0;
 let currentQueue = [];   // 目前佇列快取，用於重複歌曲偵測與現正播放顯示
+let skipNeeded = 0, skipVotes = 0, playingId = null;  // 跳過投票狀態
 function fmtTime(sec) { const m = Math.floor(sec / 60), s = sec % 60; return m + ':' + String(s).padStart(2, '0'); }
 function renderCooldown() {
   const pill = document.getElementById('cooldownPill');
@@ -477,11 +484,15 @@ async function addToQueue(videoId, title, thumbnail, btnEl) {
 function renderNowPlaying(queue) {
   const np = document.getElementById('nowPlaying');
   const playing = (queue || []).find(s => s.status === 'playing');
-  if (!playing) { np.style.display = 'none'; return; }
+  if (!playing) { np.style.display = 'none'; playingId = null; return; }
+  playingId = playing.id;
   np.style.display = 'flex';
+  const right = skipNeeded > 0
+    ? '<button class="np-vote" onclick="voteSkip()">想跳過 ' + skipVotes + '/' + skipNeeded + '</button>'
+    : '<div class="npeq"><span></span><span></span><span></span><span></span></div>';
   np.innerHTML = '<img src="' + (playing.thumbnail || ('https://i.ytimg.com/vi/' + playing.videoId + '/default.jpg')) + '">' +
     '<div class="npinfo"><div class="nplabel">🎵 現正播放</div><div class="nptitle">' + escapeHtml(playing.title) + '</div></div>' +
-    '<div class="npeq"><span></span><span></span><span></span><span></span></div>';
+    right;
 }
 function renderQueue(queue) {
   currentQueue = queue || [];
@@ -502,7 +513,23 @@ function renderQueue(queue) {
 async function loadQueue() {
   try {
     const data = await api('getQueue');
-    if (data.success) renderQueue(data.queue);
+    if (data.success) {
+      skipNeeded = data.skipVotesNeeded || 0;
+      skipVotes = data.skipVotes || 0;
+      renderQueue(data.queue);
+    }
+  } catch (e) {}
+}
+
+async function voteSkip() {
+  if (!playingId) return;
+  try {
+    const r = await api('voteSkip', { table: TABLE, id: playingId });
+    if (r.success) {
+      skipVotes = r.votes;
+      showToast(r.skipped ? '🗳 投票通過，已跳過！' : ('🗳 已投票（' + r.votes + '/' + r.needed + '）'));
+      loadQueue();
+    }
   } catch (e) {}
 }
 
