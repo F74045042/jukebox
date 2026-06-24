@@ -170,6 +170,23 @@
   }
   .section-title::after{ content:''; flex:1; height:1px; background:var(--border); }
 
+  .now-playing{
+    display:flex; gap:12px; align-items:center;
+    background:linear-gradient(135deg, rgba(240,116,60,0.18), rgba(232,110,55,0.06));
+    border:1px solid rgba(240,116,60,0.42); border-radius:16px;
+    padding:12px; margin-bottom:18px;
+  }
+  .now-playing img{ width:54px; height:54px; border-radius:10px; object-fit:cover; flex-shrink:0; }
+  .now-playing .npinfo{ flex:1; min-width:0; }
+  .now-playing .nplabel{ font-size:11px; color:var(--ember); font-weight:700; letter-spacing:1.5px; }
+  .now-playing .nptitle{ font-size:14.5px; font-weight:500; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .now-playing .npeq{ display:flex; gap:3px; align-items:flex-end; height:18px; flex-shrink:0; }
+  .now-playing .npeq span{ width:3px; background:var(--ember); border-radius:2px; animation:eqc .9s ease-in-out infinite; }
+  .now-playing .npeq span:nth-child(2){ animation-delay:.25s; }
+  .now-playing .npeq span:nth-child(3){ animation-delay:.5s; }
+  .now-playing .npeq span:nth-child(4){ animation-delay:.15s; }
+  @keyframes eqc{ 0%,100%{ height:5px; } 50%{ height:16px; } }
+
   .queue-row{
     display:flex; gap:12px; align-items:center; padding:11px 8px;
     border-radius:12px; font-size:14px; margin-bottom:2px;
@@ -251,6 +268,8 @@
     </div>
   </div>
 
+  <div id="nowPlaying" class="now-playing" style="display:none;"></div>
+
   <div class="section-title">目前排隊中</div>
   <div id="queueList"><div class="loader">載入中...</div></div>
 </div>
@@ -298,6 +317,7 @@ function switchTab(name) {
 
 // ---- 冷卻倒數 ----
 let cooldownRemaining = 0;
+let currentQueue = [];   // 目前佇列快取，用於重複歌曲偵測與現正播放顯示
 function fmtTime(sec) { const m = Math.floor(sec / 60), s = sec % 60; return m + ':' + String(s).padStart(2, '0'); }
 function renderCooldown() {
   const pill = document.getElementById('cooldownPill');
@@ -419,6 +439,10 @@ async function addToQueue(videoId, title, thumbnail, btnEl) {
     showToast('冷卻中，請等 ' + fmtTime(cooldownRemaining) + ' 後再點', true);
     return;
   }
+  if (currentQueue.some(s => String(s.videoId) === String(videoId))) {
+    showToast('這首已經在佇列中囉 🎵', true);
+    return;
+  }
   btnEl.disabled = true;
   // 樂觀更新：立刻顯示，不等伺服器
   showToast('🎶 已加入佇列！');
@@ -443,7 +467,18 @@ async function addToQueue(videoId, title, thumbnail, btnEl) {
 }
 
 // ---- 佇列顯示 ----
+function renderNowPlaying(queue) {
+  const np = document.getElementById('nowPlaying');
+  const playing = (queue || []).find(s => s.status === 'playing');
+  if (!playing) { np.style.display = 'none'; return; }
+  np.style.display = 'flex';
+  np.innerHTML = '<img src="' + (playing.thumbnail || ('https://i.ytimg.com/vi/' + playing.videoId + '/default.jpg')) + '">' +
+    '<div class="npinfo"><div class="nplabel">🎵 現正播放</div><div class="nptitle">' + escapeHtml(playing.title) + '</div></div>' +
+    '<div class="npeq"><span></span><span></span><span></span><span></span></div>';
+}
 function renderQueue(queue) {
+  currentQueue = queue || [];
+  renderNowPlaying(currentQueue);
   const el = document.getElementById('queueList');
   if (!queue || !queue.length) {
     el.innerHTML = '<div class="empty">目前還沒有人點歌，當第一個吧！</div>';

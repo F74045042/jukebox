@@ -244,7 +244,19 @@
 </head>
 <body>
 
+<button class="gear" onclick="openStats()" title="熱門統計" style="right:80px;">📊</button>
 <button class="gear" onclick="openSettings()" title="設定">⚙️</button>
+
+<div class="settings-overlay" id="statsOverlay">
+  <div class="settings-card">
+    <h3>📊 熱門點歌</h3>
+    <div class="desc" id="statsSummary">統計中…</div>
+    <div id="statsList"></div>
+    <div class="settings-actions">
+      <button class="btn-cancel" onclick="closeStats()">關閉</button>
+    </div>
+  </div>
+</div>
 
 <div class="settings-overlay" id="settingsOverlay">
   <div class="settings-card">
@@ -280,6 +292,27 @@
         <div class="hint2">開＝只顯示歌曲，過濾教學/開箱/直播；關＝搜尋全部影片。</div>
       </div>
       <label class="switch"><input type="checkbox" id="setMusicOnly"><span class="slider"></span></label>
+    </div>
+
+    <div class="sec-label">內容與營業</div>
+    <div class="field">
+      <label>歌曲長度上限（分鐘）</label>
+      <input type="number" id="setMaxSongMin" min="0" step="1">
+      <div class="hint2">超過就不給點，0 = 不限制（開啟時點歌會多查一次長度）。</div>
+    </div>
+    <div class="field">
+      <label>開放點歌時段（24 小時制）</label>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <input type="number" id="setOpenHour" min="0" max="23" step="1" style="flex:1;">
+        <span style="color:var(--muted);">到</span>
+        <input type="number" id="setCloseHour" min="0" max="24" step="1" style="flex:1;">
+      </div>
+      <div class="hint2">例如 11 到 22。兩者相同 = 全天開放；可跨夜（如 18 到 2）。</div>
+    </div>
+    <div class="field">
+      <label>黑名單關鍵字</label>
+      <input type="text" id="setBlockWords" placeholder="用逗號分隔，例如：髒話1, 髒話2">
+      <div class="hint2">歌名含這些字就不給點。留空 = 不過濾。</div>
     </div>
 
     <div class="sec-label">播放</div>
@@ -356,7 +389,7 @@ let playerReady = false;
 let currentSong = null;
 let started = false;
 let queueCache = [];
-let settings = { cooldownMin: 0, maxPerTable: 3, playHistoryWhenIdle: false, dailySearchLimit: 95, searchCount: 8, musicOnly: true };
+let settings = { cooldownMin: 0, maxPerTable: 3, playHistoryWhenIdle: false, dailySearchLimit: 95, searchCount: 8, musicOnly: true, blockWords: '', maxSongMin: 0, openHour: 0, closeHour: 0 };
 let historyList = [];
 
 async function api(action, params = {}) {
@@ -379,6 +412,10 @@ async function loadSettings() {
       settings.dailySearchLimit = s.dailySearchLimit;
       settings.searchCount = s.searchCount;
       settings.musicOnly = s.musicOnly;
+      settings.blockWords = s.blockWords || '';
+      settings.maxSongMin = s.maxSongMin || 0;
+      settings.openHour = s.openHour || 0;
+      settings.closeHour = s.closeHour || 0;
     }
   } catch (e) {}
 }
@@ -389,9 +426,40 @@ function openSettings() {
   document.getElementById('setSearchCount').value = settings.searchCount;
   document.getElementById('setDailyLimit').value = settings.dailySearchLimit;
   document.getElementById('setMusicOnly').checked = settings.musicOnly;
+  document.getElementById('setMaxSongMin').value = settings.maxSongMin;
+  document.getElementById('setOpenHour').value = settings.openHour;
+  document.getElementById('setCloseHour').value = settings.closeHour;
+  document.getElementById('setBlockWords').value = settings.blockWords;
   document.getElementById('settingsOverlay').style.display = 'flex';
 }
 function closeSettings() { document.getElementById('settingsOverlay').style.display = 'none'; }
+
+// ---- 熱門統計 ----
+async function openStats() {
+  document.getElementById('statsOverlay').style.display = 'flex';
+  document.getElementById('statsSummary').textContent = '統計中…';
+  document.getElementById('statsList').innerHTML = '';
+  try {
+    const r = await api('getStats');
+    if (!r.success) { document.getElementById('statsSummary').textContent = '讀取失敗'; return; }
+    document.getElementById('statsSummary').textContent = '累計播放 ' + r.totalPlays + ' 次';
+    const el = document.getElementById('statsList');
+    if (!r.top.length) { el.innerHTML = '<div class="empty-q">還沒有播放紀錄</div>'; return; }
+    el.innerHTML = r.top.map((s, i) => `
+      <div class="qrow">
+        <div class="num">${i + 1}</div>
+        <img src="${s.thumbnail || ('https://i.ytimg.com/vi/' + s.videoId + '/default.jpg')}">
+        <div class="info">
+          <div class="title">${escapeHtml(s.title)}</div>
+          <div class="table">播放 ${s.count} 次</div>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    document.getElementById('statsSummary').textContent = '讀取失敗';
+  }
+}
+function closeStats() { document.getElementById('statsOverlay').style.display = 'none'; }
 async function saveSettingsPanel() {
   const cooldownMin = Math.max(0, parseInt(document.getElementById('setCooldown').value, 10) || 0);
   const maxPerTable = Math.max(1, parseInt(document.getElementById('setMax').value, 10) || 1);
@@ -399,8 +467,12 @@ async function saveSettingsPanel() {
   const searchCount = Math.min(20, Math.max(1, parseInt(document.getElementById('setSearchCount').value, 10) || 8));
   const dailySearchLimit = Math.max(1, parseInt(document.getElementById('setDailyLimit').value, 10) || 1);
   const musicOnly = document.getElementById('setMusicOnly').checked;
+  const maxSongMin = Math.max(0, parseInt(document.getElementById('setMaxSongMin').value, 10) || 0);
+  const openHour = Math.min(23, Math.max(0, parseInt(document.getElementById('setOpenHour').value, 10) || 0));
+  const closeHour = Math.min(24, Math.max(0, parseInt(document.getElementById('setCloseHour').value, 10) || 0));
+  const blockWords = document.getElementById('setBlockWords').value;
   try {
-    const r = await api('saveSettings', { cooldownMin, maxPerTable, playHistoryWhenIdle, searchCount, dailySearchLimit, musicOnly });
+    const r = await api('saveSettings', { cooldownMin, maxPerTable, playHistoryWhenIdle, searchCount, dailySearchLimit, musicOnly, maxSongMin, openHour, closeHour, blockWords });
     if (r.success) {
       settings.cooldownMin = r.cooldownMin;
       settings.maxPerTable = r.maxPerTable;
@@ -408,6 +480,10 @@ async function saveSettingsPanel() {
       settings.dailySearchLimit = r.dailySearchLimit;
       settings.searchCount = r.searchCount;
       settings.musicOnly = r.musicOnly;
+      settings.blockWords = r.blockWords || '';
+      settings.maxSongMin = r.maxSongMin || 0;
+      settings.openHour = r.openHour || 0;
+      settings.closeHour = r.closeHour || 0;
     }
   } catch (e) {}
   closeSettings();
