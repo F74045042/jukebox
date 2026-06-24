@@ -344,6 +344,13 @@
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbz8ky7ggwMMmGFxM6N1qFan0barLR_T02vqyQT656l2wTs4yFKx0Oa5MnxZ5hhNKJL71w/exec'; // 換成你部署後的 .../exec 網址
 
+// 管理通關碼：用 player.html?key=xxxx 開啟一次即會記住（存 localStorage），控制動作（跳過/刪除/清空/改設定）才有權限
+const ADMIN_KEY = (function () {
+  const fromUrl = new URLSearchParams(location.search).get('key');
+  if (fromUrl) { localStorage.setItem('jukebox_admin_key', fromUrl); return fromUrl; }
+  return localStorage.getItem('jukebox_admin_key') || '';
+})();
+
 let ytPlayer = null;
 let playerReady = false;
 let currentSong = null;
@@ -355,6 +362,7 @@ let historyList = [];
 async function api(action, params = {}) {
   const url = new URL(API_URL);
   url.searchParams.set('action', action);
+  if (ADMIN_KEY) url.searchParams.set('key', ADMIN_KEY);
   for (const k in params) url.searchParams.set(k, params[k]);
   const res = await fetch(url.toString());
   return res.json();
