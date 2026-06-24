@@ -319,15 +319,16 @@ async function refreshQuota() {
     if (q.success) document.getElementById('searchRemaining').textContent = q.remaining;
   } catch (e) {}
 }
+function applyTableStatus(t) {
+  document.getElementById('tableRemaining').textContent = t.remaining;
+  document.getElementById('tableQuotaPill').className = 'pill' + (t.remaining === 0 ? ' bad' : t.remaining === 1 ? ' warn' : '');
+  cooldownRemaining = t.cooldownRemaining || 0;
+  renderCooldown();
+}
 async function refreshTableStatus() {
   try {
     const t = await api('getTableStatus', { table: TABLE });
-    if (t.success) {
-      document.getElementById('tableRemaining').textContent = t.remaining;
-      document.getElementById('tableQuotaPill').className = 'pill' + (t.remaining === 0 ? ' bad' : t.remaining === 1 ? ' warn' : '');
-      cooldownRemaining = t.cooldownRemaining || 0;
-      renderCooldown();
-    }
+    if (t.success) applyTableStatus(t);
   } catch (e) {}
 }
 
@@ -401,45 +402,65 @@ async function doLinkLookup() {
 }
 
 // ---- 加入佇列 ----
+// 樂觀更新：在佇列尾端暫時插入一列，讓使用者按下立即看到
+function appendOptimisticRow(title) {
+  const el = document.getElementById('queueList');
+  if (el.querySelector('.empty')) el.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'queue-row';
+  div.style.opacity = '0.55';
+  div.innerHTML = '<div class="num">＋</div><div class="t">' + escapeHtml(title) +
+                  '</div><div class="tb">' + escapeHtml(String(TABLE)) + '桌</div>';
+  el.appendChild(div);
+}
+
 async function addToQueue(videoId, title, thumbnail, btnEl) {
   if (cooldownRemaining > 0) {
     showToast('冷卻中，請等 ' + fmtTime(cooldownRemaining) + ' 後再點', true);
     return;
   }
   btnEl.disabled = true;
+  // 樂觀更新：立刻顯示，不等伺服器
+  showToast('🎶 已加入佇列！');
+  appendOptimisticRow(title);
   try {
     const data = await api('addSong', { table: TABLE, videoId, title, thumbnail });
     if (data.success) {
-      showToast('已加入佇列！排在第 ' + data.position + ' 位');
-      refreshTableStatus();
-      loadQueue();
+      // 直接用回傳的佇列＋桌況刷新，省掉另外兩支 API
+      if (data.queue) renderQueue(data.queue);
+      if (data.tableStatus) applyTableStatus(data.tableStatus);
     } else {
       if (data.error === 'COOLDOWN' && data.cooldownRemaining) { cooldownRemaining = data.cooldownRemaining; renderCooldown(); }
       showToast(data.message || data.error || '加入失敗', true);
+      loadQueue();          // 還原樂觀列
       btnEl.disabled = false;
     }
   } catch (e) {
     showToast('連線失敗，請稍後再試', true);
+    loadQueue();            // 還原樂觀列
     btnEl.disabled = false;
   }
 }
 
 // ---- 佇列顯示 ----
+function renderQueue(queue) {
+  const el = document.getElementById('queueList');
+  if (!queue || !queue.length) {
+    el.innerHTML = '<div class="empty">目前還沒有人點歌，當第一個吧！</div>';
+    return;
+  }
+  el.innerHTML = queue.map((s, i) => `
+    <div class="queue-row ${s.status === 'playing' ? 'playing' : ''}">
+      <div class="num">${s.status === 'playing' ? '<span class="vinyl-mini"></span>' : (i + 1)}</div>
+      <div class="t">${escapeHtml(s.title)}</div>
+      <div class="tb">${escapeHtml(String(s.table))}桌</div>
+    </div>
+  `).join('');
+}
 async function loadQueue() {
   try {
     const data = await api('getQueue');
-    const el = document.getElementById('queueList');
-    if (!data.success || !data.queue.length) {
-      el.innerHTML = '<div class="empty">目前還沒有人點歌，當第一個吧！</div>';
-      return;
-    }
-    el.innerHTML = data.queue.map((s, i) => `
-      <div class="queue-row ${s.status === 'playing' ? 'playing' : ''}">
-        <div class="num">${s.status === 'playing' ? '<span class="vinyl-mini"></span>' : (i + 1)}</div>
-        <div class="t">${escapeHtml(s.title)}</div>
-        <div class="tb">${escapeHtml(String(s.table))}桌</div>
-      </div>
-    `).join('');
+    if (data.success) renderQueue(data.queue);
   } catch (e) {}
 }
 
