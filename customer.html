@@ -72,6 +72,12 @@
     color:var(--faint); align-self:flex-end; padding-bottom:4px;
   }
   .sub{ font-size:12.5px; color:var(--muted); margin-top:6px; }
+  .langsw{ margin-left:auto; display:flex; gap:4px; }
+  .langsw button{
+    border:1px solid var(--border); background:var(--glass); color:var(--muted);
+    font-size:12px; font-weight:700; padding:5px 9px; border-radius:8px; cursor:pointer; font-family:inherit;
+  }
+  .langsw button.active{ background:rgba(240,116,60,0.16); color:#ffb088; border-color:rgba(240,116,60,0.45); }
 
   .status-row{ display:flex; gap:8px; margin-top:13px; flex-wrap:wrap; }
   .pill{
@@ -246,45 +252,50 @@
     <span class="dot"></span>
     <span class="mark">點唱機</span>
     <span class="wordmark">JUKEBOX</span>
+    <div class="langsw" id="langsw">
+      <button data-lang="zh" onclick="setLang('zh')">中</button>
+      <button data-lang="en" onclick="setLang('en')">EN</button>
+      <button data-lang="ja" onclick="setLang('ja')">日</button>
+    </div>
   </div>
-  <div class="sub">掃桌上 QR，點一首你想聽的歌</div>
+  <div class="sub" data-i18n="sub">掃桌上 QR，點一首你想聽的歌</div>
   <div class="status-row">
-    <div class="pill" id="tablePill">桌號 <b id="tableNo">--</b></div>
-    <div class="pill" id="tableQuotaPill">本桌可點 <b id="tableRemaining">-</b> 首</div>
-    <div class="pill" id="quotaPill">今日搜尋 <b id="searchRemaining">-</b></div>
-    <div class="pill bad" id="cooldownPill" style="display:none;">冷卻中 <b id="cooldownTime">0:00</b></div>
+    <div class="pill" id="tablePill"><span data-i18n="table">桌號</span> <b id="tableNo">--</b></div>
+    <div class="pill" id="tableQuotaPill"><span data-i18n="canOrder">本桌可點</span> <b id="tableRemaining">-</b> <span data-i18n="songUnit">首</span></div>
+    <div class="pill" id="quotaPill"><span data-i18n="todaySearch">今日搜尋</span> <b id="searchRemaining">-</b></div>
+    <div class="pill bad" id="cooldownPill" style="display:none;"><span data-i18n="cooldown">冷卻中</span> <b id="cooldownTime">0:00</b></div>
   </div>
 </div>
 
 <div class="wrap">
   <div class="tabs">
-    <div class="tab active" id="tabSearch" onclick="switchTab('search')">搜尋歌曲</div>
-    <div class="tab" id="tabLink" onclick="switchTab('link')">貼上連結</div>
+    <div class="tab active" id="tabSearch" onclick="switchTab('search')" data-i18n="tabSearch">搜尋歌曲</div>
+    <div class="tab" id="tabLink" onclick="switchTab('link')" data-i18n="tabLink">貼上連結</div>
   </div>
 
   <div id="searchPane">
     <div class="search-box">
-      <input type="text" id="searchInput" placeholder="輸入歌名或歌手..." onkeydown="if(event.key==='Enter')doSearch()">
-      <button class="go" id="searchBtn" onclick="doSearch()">搜尋</button>
+      <input type="text" id="searchInput" data-i18n-ph="searchPh" placeholder="輸入歌名或歌手..." onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="go" id="searchBtn" onclick="doSearch()" data-i18n="searchBtn">搜尋</button>
     </div>
     <div id="searchResults"></div>
   </div>
 
   <div id="linkPane" style="display:none;">
     <div class="search-box">
-      <input type="text" id="linkInput" placeholder="貼上 YouTube 影片連結...">
-      <button class="go" onclick="doLinkLookup()">查詢</button>
+      <input type="text" id="linkInput" data-i18n-ph="linkPh" placeholder="貼上 YouTube 影片連結...">
+      <button class="go" onclick="doLinkLookup()" data-i18n="lookupBtn">查詢</button>
     </div>
     <div id="linkResult"></div>
-    <div class="empty" style="padding:24px 12px;">
+    <div class="empty" style="padding:24px 12px;" data-i18n="linkHint">
       在 YouTube App 找到想點的歌，按「分享」→「複製連結」，貼到這裡即可，不會占用搜尋次數。
     </div>
   </div>
 
   <div id="nowPlaying" class="now-playing" style="display:none;"></div>
 
-  <div class="section-title">目前排隊中</div>
-  <div id="queueList"><div class="loader">載入中...</div></div>
+  <div class="section-title" data-i18n="upNext">目前排隊中</div>
+  <div id="queueList"><div class="loader" data-i18n="loading">載入中...</div></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -304,6 +315,54 @@ function getTable() {
 }
 const TABLE = getTable();
 document.getElementById('tableNo').textContent = TABLE;
+
+// ---- 多語系 ----
+const I18N = {
+  zh: { sub:'掃桌上 QR，點一首你想聽的歌', table:'桌號', canOrder:'本桌可點', songUnit:'首', todaySearch:'今日搜尋', cooldown:'冷卻中',
+    tabSearch:'搜尋歌曲', tabLink:'貼上連結', searchPh:'輸入歌名或歌手...', searchBtn:'搜尋', linkPh:'貼上 YouTube 影片連結...', lookupBtn:'查詢',
+    linkHint:'在 YouTube App 找到想點的歌，按「分享」→「複製連結」，貼到這裡即可，不會占用搜尋次數。',
+    upNext:'目前排隊中', nowPlaying:'🎵 現正播放', voteBtn:'想跳過 {a}/{b}', searching:'搜尋中...', lookingUp:'查詢中...',
+    noResults:'找不到符合的歌曲，換個關鍵字試試？', connFail:'連線失敗，請稍後再試', searchFail:'搜尋失敗：{e}', queueEmpty:'目前還沒有人點歌，當第一個吧！',
+    loading:'載入中...', added:'🎶 已加入佇列！', dup:'這首已經在佇列中囉 🎵', cooldownWait:'冷卻中，請等 {t} 後再點',
+    voteDone:'🗳 已投票（{a}/{b}）', voteSkipped:'🗳 投票通過，已跳過！', addFail:'加入失敗',
+    eCooldown:'本桌已點滿，冷卻中請稍候再點', eLimit:'本桌已達點歌上限，請等播放完再點', eClosed:'目前非開放點歌時間', eBlocked:'這首歌不開放點播', eTooLong:'歌曲太長，請改點短一點的', eQuota:'今日搜尋次數已用完，請改用「貼上連結」' },
+  en: { sub:'Scan the QR on your table and request a song', table:'Table', canOrder:'Can order', songUnit:'', todaySearch:'Searches left', cooldown:'Cooldown',
+    tabSearch:'Search', tabLink:'Paste link', searchPh:'Song or artist...', searchBtn:'Search', linkPh:'Paste a YouTube link...', lookupBtn:'Look up',
+    linkHint:'Find the song in the YouTube app, tap Share → Copy link, and paste it here. This does not use search quota.',
+    upNext:'Up next', nowPlaying:'🎵 Now playing', voteBtn:'Skip {a}/{b}', searching:'Searching...', lookingUp:'Looking up...',
+    noResults:'No matches, try another keyword.', connFail:'Connection failed, please try again', searchFail:'Search failed: {e}', queueEmpty:'No songs yet — be the first!',
+    loading:'Loading...', added:'🎶 Added to the queue!', dup:'This song is already in the queue 🎵', cooldownWait:'Cooling down, wait {t}',
+    voteDone:'🗳 Voted ({a}/{b})', voteSkipped:'🗳 Vote passed, skipped!', addFail:'Failed to add',
+    eCooldown:'Table is full and cooling down, please wait', eLimit:'Table reached its limit, wait for songs to finish', eClosed:'Ordering is closed right now', eBlocked:'This song is not allowed', eTooLong:'Song too long, pick a shorter one', eQuota:"Search limit reached today, please paste a link" },
+  ja: { sub:'テーブルのQRを読み取って曲をリクエスト', table:'卓番', canOrder:'リクエスト可', songUnit:'曲', todaySearch:'本日の検索', cooldown:'クールダウン',
+    tabSearch:'検索', tabLink:'リンク貼付', searchPh:'曲名やアーティスト...', searchBtn:'検索', linkPh:'YouTubeのリンクを貼付...', lookupBtn:'確認',
+    linkHint:'YouTubeアプリで曲を見つけ、共有→リンクをコピーしてここに貼り付け。検索回数は消費しません。',
+    upNext:'再生待ち', nowPlaying:'🎵 再生中', voteBtn:'スキップ {a}/{b}', searching:'検索中...', lookingUp:'確認中...',
+    noResults:'見つかりません。別のキーワードでお試しを。', connFail:'接続に失敗しました', searchFail:'検索失敗：{e}', queueEmpty:'まだリクエストがありません。最初の一曲を！',
+    loading:'読み込み中...', added:'🎶 キューに追加しました！', dup:'この曲は既にリストにあります 🎵', cooldownWait:'クールダウン中、{t} お待ちください',
+    voteDone:'🗳 投票しました（{a}/{b}）', voteSkipped:'🗳 可決、スキップしました！', addFail:'追加に失敗',
+    eCooldown:'満杯＆クールダウン中です', eLimit:'上限に達しました。再生終了までお待ちを', eClosed:'現在リクエスト時間外です', eBlocked:'この曲はリクエストできません', eTooLong:'曲が長すぎます。短い曲を', eQuota:'本日の検索上限です。リンク貼付をご利用ください' }
+};
+let LANG = localStorage.getItem('jukebox_lang') || 'zh';
+function t(key, params) {
+  let s = (I18N[LANG] && I18N[LANG][key] != null) ? I18N[LANG][key] : (I18N.zh[key] || key);
+  if (params) for (const k in params) s = s.replace('{' + k + '}', params[k]);
+  return s;
+}
+function errMsg(data) {
+  const map = { COOLDOWN:'eCooldown', LIMIT_REACHED:'eLimit', CLOSED:'eClosed', BLOCKED:'eBlocked', TOO_LONG:'eTooLong', QUOTA_EXCEEDED:'eQuota' };
+  if (data.error && map[data.error]) return t(map[data.error]);
+  return (LANG === 'zh' && data.message) ? data.message : t('addFail');
+}
+function applyLang() {
+  document.documentElement.lang = (LANG === 'ja' ? 'ja' : LANG === 'en' ? 'en' : 'zh-Hant');
+  document.querySelectorAll('[data-i18n]').forEach(function (el) { el.textContent = t(el.getAttribute('data-i18n')); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(function (el) { el.placeholder = t(el.getAttribute('data-i18n-ph')); });
+  document.querySelectorAll('#langsw button').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-lang') === LANG); });
+  renderCooldown();
+  renderQueue(currentQueue);
+}
+function setLang(l) { LANG = l; localStorage.setItem('jukebox_lang', l); applyLang(); }
 
 // ---- 共用 ----
 function showToast(msg, isError) {
@@ -373,24 +432,24 @@ async function doSearch() {
   const btn = document.getElementById('searchBtn');
   btn.disabled = true;
   const resultsEl = document.getElementById('searchResults');
-  resultsEl.innerHTML = '<div class="loader"><span class="spin"></span>搜尋中...</div>';
+  resultsEl.innerHTML = '<div class="loader"><span class="spin"></span>' + t('searching') + '</div>';
   try {
     const data = await api('search', { query: q });
     btn.disabled = false;
     if (!data.success) {
       if (data.error === 'QUOTA_EXCEEDED') {
         resultsEl.innerHTML = '';
-        showToast(data.message, true);
+        showToast(t('eQuota'), true);
         switchTab('link');
       } else {
-        resultsEl.innerHTML = '<div class="empty">搜尋失敗：' + (data.error || '未知錯誤') + '</div>';
+        resultsEl.innerHTML = '<div class="empty">' + t('searchFail', { e: (data.error || '') }) + '</div>';
       }
       if (data.quota) document.getElementById('searchRemaining').textContent = data.quota.remaining;
       return;
     }
     if (data.quota) document.getElementById('searchRemaining').textContent = data.quota.remaining;
     if (!data.results.length) {
-      resultsEl.innerHTML = '<div class="empty">找不到符合的歌曲，換個關鍵字試試？</div>';
+      resultsEl.innerHTML = '<div class="empty">' + t('noResults') + '</div>';
       return;
     }
     resultsEl.innerHTML = data.results.map(r => `
@@ -405,7 +464,7 @@ async function doSearch() {
     `).join('');
   } catch (e) {
     btn.disabled = false;
-    resultsEl.innerHTML = '<div class="empty">連線失敗，請稍後再試</div>';
+    resultsEl.innerHTML = '<div class="empty">' + t('connFail') + '</div>';
   }
 }
 
@@ -414,11 +473,11 @@ async function doLinkLookup() {
   const url = document.getElementById('linkInput').value.trim();
   if (!url) return;
   const resultEl = document.getElementById('linkResult');
-  resultEl.innerHTML = '<div class="loader"><span class="spin"></span>查詢中...</div>';
+  resultEl.innerHTML = '<div class="loader"><span class="spin"></span>' + t('lookingUp') + '</div>';
   try {
     const data = await api('getVideoInfo', { url: url });
     if (!data.success) {
-      resultEl.innerHTML = '<div class="empty">' + (data.error || '查詢失敗') + '</div>';
+      resultEl.innerHTML = '<div class="empty">' + (data.error || t('addFail')) + '</div>';
       return;
     }
     resultEl.innerHTML = `
@@ -431,7 +490,7 @@ async function doLinkLookup() {
       </div>
     `;
   } catch (e) {
-    resultEl.innerHTML = '<div class="empty">連線失敗，請稍後再試</div>';
+    resultEl.innerHTML = '<div class="empty">' + t('connFail') + '</div>';
   }
 }
 
@@ -450,16 +509,16 @@ function appendOptimisticRow(title) {
 
 async function addToQueue(videoId, title, thumbnail, btnEl) {
   if (cooldownRemaining > 0) {
-    showToast('冷卻中，請等 ' + fmtTime(cooldownRemaining) + ' 後再點', true);
+    showToast(t('cooldownWait', { t: fmtTime(cooldownRemaining) }), true);
     return;
   }
   if (currentQueue.some(s => String(s.videoId) === String(videoId))) {
-    showToast('這首已經在佇列中囉 🎵', true);
+    showToast(t('dup'), true);
     return;
   }
   btnEl.disabled = true;
   // 樂觀更新：立刻顯示，不等伺服器
-  showToast('🎶 已加入佇列！');
+  showToast(t('added'));
   appendOptimisticRow(title);
   try {
     const data = await api('addSong', { table: TABLE, videoId, title, thumbnail });
@@ -469,12 +528,12 @@ async function addToQueue(videoId, title, thumbnail, btnEl) {
       if (data.tableStatus) applyTableStatus(data.tableStatus);
     } else {
       if (data.error === 'COOLDOWN' && data.cooldownRemaining) { cooldownRemaining = data.cooldownRemaining; renderCooldown(); }
-      showToast(data.message || data.error || '加入失敗', true);
+      showToast(errMsg(data), true);
       loadQueue();          // 還原樂觀列
       btnEl.disabled = false;
     }
   } catch (e) {
-    showToast('連線失敗，請稍後再試', true);
+    showToast(t('connFail'), true);
     loadQueue();            // 還原樂觀列
     btnEl.disabled = false;
   }
@@ -488,10 +547,10 @@ function renderNowPlaying(queue) {
   playingId = playing.id;
   np.style.display = 'flex';
   const right = skipNeeded > 0
-    ? '<button class="np-vote" onclick="voteSkip()">想跳過 ' + skipVotes + '/' + skipNeeded + '</button>'
+    ? '<button class="np-vote" onclick="voteSkip()">' + t('voteBtn', { a: skipVotes, b: skipNeeded }) + '</button>'
     : '<div class="npeq"><span></span><span></span><span></span><span></span></div>';
   np.innerHTML = '<img src="' + (playing.thumbnail || ('https://i.ytimg.com/vi/' + playing.videoId + '/default.jpg')) + '">' +
-    '<div class="npinfo"><div class="nplabel">🎵 現正播放</div><div class="nptitle">' + escapeHtml(playing.title) + '</div></div>' +
+    '<div class="npinfo"><div class="nplabel">' + t('nowPlaying') + '</div><div class="nptitle">' + escapeHtml(playing.title) + '</div></div>' +
     right;
 }
 function renderQueue(queue) {
@@ -499,7 +558,7 @@ function renderQueue(queue) {
   renderNowPlaying(currentQueue);
   const el = document.getElementById('queueList');
   if (!queue || !queue.length) {
-    el.innerHTML = '<div class="empty">目前還沒有人點歌，當第一個吧！</div>';
+    el.innerHTML = '<div class="empty">' + t('queueEmpty') + '</div>';
     return;
   }
   el.innerHTML = queue.map((s, i) => `
@@ -527,7 +586,7 @@ async function voteSkip() {
     const r = await api('voteSkip', { table: TABLE, id: playingId });
     if (r.success) {
       skipVotes = r.votes;
-      showToast(r.skipped ? '🗳 投票通過，已跳過！' : ('🗳 已投票（' + r.votes + '/' + r.needed + '）'));
+      showToast(r.skipped ? t('voteSkipped') : t('voteDone', { a: r.votes, b: r.needed }));
       loadQueue();
     }
   } catch (e) {}
@@ -545,6 +604,7 @@ function attrJson(v) {
 }
 
 // ---- 初始化 ----
+applyLang();
 refreshQuota();
 refreshTableStatus();
 loadQueue();
