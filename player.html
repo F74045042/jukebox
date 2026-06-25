@@ -699,13 +699,22 @@ async function tick() {
   } catch (e) {}
 }
 
-// 無佇列時，從播放過的歷史歌單隨機挑一首墊檔
+// 無佇列時，依「播放先後順序」回放歷史歌單（由舊到新，循環）
+let lastHistoryVideoId = null;   // 記住上一首回放的歌，避免同一首連續重播
 async function playHistoryTrack() {
   if (!historyList.length) {
     try { const r = await api('getHistory'); historyList = (r.success && r.history) ? r.history : []; } catch (e) {}
   }
   if (!historyList.length) { showIdleView(); return; }
-  const pick = historyList[Math.floor(Math.random() * historyList.length)];
+  // historyList 是「由新到舊」，回放時反轉成「由舊到新」依序播放
+  const order = historyList.slice().reverse();
+  let idx = 0;
+  if (lastHistoryVideoId) {
+    const prev = order.findIndex(s => s.videoId === lastHistoryVideoId);
+    if (prev !== -1) idx = (prev + 1) % order.length;   // 接續上一首的下一首
+  }
+  const pick = order[idx];
+  lastHistoryVideoId = pick.videoId;
   currentSong = { id: '__history__', videoId: pick.videoId, title: pick.title, table: pick.table, isHistory: true };
   showPlayingView(currentSong);
   if (playerReady && ytPlayer && ytPlayer.loadVideoById) {
