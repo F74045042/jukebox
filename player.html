@@ -192,6 +192,13 @@
     flex-shrink:0; padding:6px; border-radius:8px; transition:all .14s;
   }
   .qrow .del:hover{ color:var(--danger); background:rgba(255,106,95,0.12); }
+  .qrow .drag{
+    background:none; border:none; color:var(--faint); font-size:18px; line-height:1;
+    flex-shrink:0; padding:6px 4px; border-radius:8px; cursor:grab;
+    touch-action:none; /* 觸控時讓拖曳生效，不會變成捲動頁面 */
+  }
+  .qrow .drag:active{ cursor:grabbing; }
+  .qrow.dragging{ opacity:.6; border-color:var(--ember); background:rgba(240,116,60,0.12); }
   .empty-q{ color:var(--faint); font-size:14px; padding:24px 0; text-align:center; }
 
   /* ⚙️ 設定 */
@@ -706,14 +713,13 @@ async function playHistoryTrack() {
     try { const r = await api('getHistory'); historyList = (r.success && r.history) ? r.history : []; } catch (e) {}
   }
   if (!historyList.length) { showIdleView(); return; }
-  // historyList 是「由新到舊」，回放時反轉成「由舊到新」依序播放
-  const order = historyList.slice().reverse();
+  // historyList 的順序即回放順序（清單由上到下），接續上一首播下一首、循環
   let idx = 0;
   if (lastHistoryVideoId) {
-    const prev = order.findIndex(s => s.videoId === lastHistoryVideoId);
-    if (prev !== -1) idx = (prev + 1) % order.length;   // 接續上一首的下一首
+    const prev = historyList.findIndex(s => s.videoId === lastHistoryVideoId);
+    if (prev !== -1) idx = (prev + 1) % historyList.length;
   }
-  const pick = order[idx];
+  const pick = historyList[idx];
   lastHistoryVideoId = pick.videoId;
   currentSong = { id: '__history__', videoId: pick.videoId, title: pick.title, table: pick.table, isHistory: true };
   showPlayingView(currentSong);
@@ -805,6 +811,7 @@ function bumpSong(id) {
 
 // ---- 歷史歌單顯示 ----
 async function refreshHistory() {
+  if (histDragging) return;   // 拖曳排序中不要被自動刷新打斷
   try {
     const r = await api('getHistory');
     if (r.success) { historyList = r.history || []; renderHistory(); }
@@ -817,14 +824,57 @@ function renderHistory() {
     return;
   }
   el.innerHTML = historyList.map((s) => `
-    <div class="qrow">
+    <div class="qrow" data-vid="${escapeHtml(s.videoId)}">
+      <button class="drag" title="拖動排序" aria-label="拖動排序">⠿</button>
       <img src="${s.thumbnail || ('https://i.ytimg.com/vi/' + s.videoId + '/default.jpg')}">
       <div class="info">
         <div class="title">${escapeHtml(s.title)}</div>
         <div class="table">${escapeHtml(String(s.table))}桌</div>
       </div>
+      <button class="del" onclick="deleteHistoryItem('${escapeHtml(s.videoId)}')" title="從回放清單刪除">✕</button>
     </div>
   `).join('');
+  attachHistoryDrag();
+}
+
+// 從回放清單刪除（樂觀移除，背景通知後端加入隱藏清單）
+function deleteHistoryItem(videoId) {
+  historyList = historyList.filter(s => s.videoId !== videoId);
+  renderHistory();
+  api('deleteHistory', { videoId }).catch(() => {});
+}
+
+// 拖曳排序（Pointer Events，桌機滑鼠與平板觸控皆可）
+let histDragging = false;
+function attachHistoryDrag() {
+  document.getElementById('historyList').querySelectorAll('.qrow .drag').forEach(handle => {
+    handle.addEventListener('pointerdown', e => startHistDrag(e, handle.closest('.qrow')));
+  });
+}
+function startHistDrag(e, row) {
+  e.preventDefault();
+  histDragging = true;
+  row.classList.add('dragging');
+  const list = document.getElementById('historyList');
+  const move = (ev) => {
+    const after = [...list.querySelectorAll('.qrow:not(.dragging)')]
+      .find(r => { const b = r.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
+    if (after) list.insertBefore(row, after); else list.appendChild(row);
+  };
+  const up = () => {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    row.classList.remove('dragging');
+    histDragging = false;
+    saveHistoryOrder();
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+}
+function saveHistoryOrder() {
+  const ids = [...document.getElementById('historyList').querySelectorAll('.qrow')].map(r => r.getAttribute('data-vid'));
+  historyList.sort((a, b) => ids.indexOf(a.videoId) - ids.indexOf(b.videoId));
+  api('reorderHistory', { ids: ids.join(',') }).catch(() => {});
 }
 
 function escapeHtml(str) {
