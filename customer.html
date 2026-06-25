@@ -248,6 +248,14 @@
   .queue-row.playing .t{ color:var(--text); font-weight:500; }
   .queue-row .tb{ color:var(--faint); font-size:12px; flex-shrink:0; }
   .queue-row.playing .tb{ color:#ffb088; }
+  .queue-row .bump-btn{
+    flex-shrink:0; border:1px solid rgba(240,116,60,0.5); border-radius:9px;
+    background:rgba(240,116,60,0.14); color:#ffb088; font-family:inherit;
+    font-size:12px; font-weight:700; padding:6px 10px; cursor:pointer;
+    transition:transform .12s, filter .12s;
+  }
+  .queue-row .bump-btn:active{ transform:scale(0.94); }
+  .queue-row .bump-btn:disabled{ opacity:0.45; }
 
   .loader{ text-align:center; padding:22px; color:var(--muted); font-size:13px; }
   .spin{
@@ -368,6 +376,8 @@ const I18N = {
     noResults:'找不到符合的歌曲，換個關鍵字試試？', connFail:'連線失敗，請稍後再試', searchFail:'搜尋失敗：{e}', queueEmpty:'目前還沒有人點歌，當第一個吧！',
     loading:'載入中...', added:'🎶 已加入佇列！', dup:'這首已經在佇列中囉 🎵', cooldownWait:'冷卻中，請等 {t} 後再點',
     voteDone:'🗳 已投票（{a}/{b}）', voteSkipped:'🗳 投票通過，已跳過！', addFail:'加入失敗',
+    bumpBtn:'插播', bumpConfirm:'付費插播：{c}\n要把這首排到最前面（下一首就播）嗎？', bumpCostPaid:'${p} 元', bumpCostFree:'免費測試中',
+    bumpDone:'⚡ 已插播，馬上輪到你！', bumpDisabled:'目前未開放插播', bumpFail:'插播失敗',
     eCooldown:'本桌已點滿，冷卻中請稍候再點', eLimit:'本桌已達點歌上限，請等播放完再點', eClosed:'目前非開放點歌時間', eBlocked:'這首歌不開放點播', eTooLong:'歌曲太長，請改點短一點的', eQuota:'今日搜尋次數已用完，請改用「貼上連結」' },
   en: { sub:'Scan the QR on your table and request a song', table:'Table', canOrder:'Can order', songUnit:'', todaySearch:'Searches left', cooldown:'Cooldown',
     tabSearch:'Search', tabLink:'Paste link', searchPh:'Song or artist...', searchBtn:'Search', linkPh:'Paste a YouTube link...', lookupBtn:'Look up',
@@ -377,6 +387,8 @@ const I18N = {
     noResults:'No matches, try another keyword.', connFail:'Connection failed, please try again', searchFail:'Search failed: {e}', queueEmpty:'No songs yet — be the first!',
     loading:'Loading...', added:'🎶 Added to the queue!', dup:'This song is already in the queue 🎵', cooldownWait:'Cooling down, wait {t}',
     voteDone:'🗳 Voted ({a}/{b})', voteSkipped:'🗳 Vote passed, skipped!', addFail:'Failed to add',
+    bumpBtn:'Play next', bumpConfirm:'Paid play-next: {c}\nMove this song to the front (plays next)?', bumpCostPaid:'${p}', bumpCostFree:'Free (testing)',
+    bumpDone:'⚡ Bumped — you are up next!', bumpDisabled:'Play-next is not available right now', bumpFail:'Could not bump',
     eCooldown:'Table is full and cooling down, please wait', eLimit:'Table reached its limit, wait for songs to finish', eClosed:'Ordering is closed right now', eBlocked:'This song is not allowed', eTooLong:'Song too long, pick a shorter one', eQuota:"Search limit reached today, please paste a link" },
   ja: { sub:'テーブルのQRを読み取って曲をリクエスト', table:'卓番', canOrder:'リクエスト可', songUnit:'曲', todaySearch:'本日の検索', cooldown:'クールダウン',
     tabSearch:'検索', tabLink:'リンク貼付', searchPh:'曲名やアーティスト...', searchBtn:'検索', linkPh:'YouTubeのリンクを貼付...', lookupBtn:'確認',
@@ -386,6 +398,8 @@ const I18N = {
     noResults:'見つかりません。別のキーワードでお試しを。', connFail:'接続に失敗しました', searchFail:'検索失敗：{e}', queueEmpty:'まだリクエストがありません。最初の一曲を！',
     loading:'読み込み中...', added:'🎶 キューに追加しました！', dup:'この曲は既にリストにあります 🎵', cooldownWait:'クールダウン中、{t} お待ちください',
     voteDone:'🗳 投票しました（{a}/{b}）', voteSkipped:'🗳 可決、スキップしました！', addFail:'追加に失敗',
+    bumpBtn:'割込再生', bumpConfirm:'有料割込：{c}\nこの曲を先頭（次に再生）へ移動しますか？', bumpCostPaid:'{p}円', bumpCostFree:'無料（テスト中）',
+    bumpDone:'⚡ 割込しました。次はあなたの番です！', bumpDisabled:'現在割込はご利用いただけません', bumpFail:'割込に失敗しました',
     eCooldown:'満杯＆クールダウン中です', eLimit:'上限に達しました。再生終了までお待ちを', eClosed:'現在リクエスト時間外です', eBlocked:'この曲はリクエストできません', eTooLong:'曲が長すぎます。短い曲を', eQuota:'本日の検索上限です。リンク貼付をご利用ください' }
 };
 let LANG = localStorage.getItem('jukebox_lang') || 'zh';
@@ -440,6 +454,7 @@ function switchTab(name) {
 let cooldownRemaining = 0;
 let currentQueue = [];   // 目前佇列快取，用於重複歌曲偵測與現正播放顯示
 let skipNeeded = 0, skipVotes = 0, playingId = null;  // 跳過投票狀態
+let paidBumpEnabled = false, bumpPrice = 0;  // 付費插播設定（由 getQueue 帶回）
 function fmtTime(sec) { const m = Math.floor(sec / 60), s = sec % 60; return m + ':' + String(s).padStart(2, '0'); }
 function renderCooldown() {
   const pill = document.getElementById('cooldownPill');
@@ -618,13 +633,42 @@ function renderQueue(queue) {
     el.innerHTML = '<div class="empty">' + t('queueEmpty') + '</div>';
     return;
   }
-  el.innerHTML = queue.map((s, i) => `
+  const firstWaitingIdx = queue.findIndex(s => s.status === 'waiting');
+  el.innerHTML = queue.map((s, i) => {
+    const isMine = String(s.table) === String(TABLE);
+    const canBump = paidBumpEnabled && s.status === 'waiting' && isMine && i !== firstWaitingIdx;
+    const bumpBtn = canBump
+      ? `<button class="bump-btn" onclick="paidBump(${attrJson(s.id)}, this)">⚡ ${t('bumpBtn')}</button>`
+      : '';
+    return `
     <div class="queue-row ${s.status === 'playing' ? 'playing' : ''}">
       <div class="num">${s.status === 'playing' ? '<span class="vinyl-mini"></span>' : (i + 1)}</div>
       <div class="t">${escapeHtml(s.title)}</div>
       <div class="tb">${escapeHtml(String(s.table))}桌</div>
-    </div>
-  `).join('');
+      ${bumpBtn}
+    </div>`;
+  }).join('');
+}
+
+// 付費插播：把自己點的歌排到最前面（下一首就播）
+async function paidBump(id, btnEl) {
+  const priceTxt = bumpPrice > 0 ? t('bumpCostPaid', { p: bumpPrice }) : t('bumpCostFree');
+  if (!confirm(t('bumpConfirm', { c: priceTxt }))) return;
+  if (btnEl) btnEl.disabled = true;
+  try {
+    const r = await api('paidBump', { table: TABLE, id });
+    if (r.success) {
+      showToast(t('bumpDone'));
+      if (r.queue) renderQueue(r.queue);
+    } else {
+      showToast(r.error === 'DISABLED' ? t('bumpDisabled') : (LANG === 'zh' && r.message ? r.message : t('bumpFail')), true);
+      if (btnEl) btnEl.disabled = false;
+      loadQueue();
+    }
+  } catch (e) {
+    showToast(t('connFail'), true);
+    if (btnEl) btnEl.disabled = false;
+  }
 }
 async function loadQueue() {
   try {
@@ -632,6 +676,8 @@ async function loadQueue() {
     if (data.success) {
       skipNeeded = data.skipVotesNeeded || 0;
       skipVotes = data.skipVotes || 0;
+      paidBumpEnabled = !!data.paidBumpEnabled;
+      bumpPrice = data.bumpPrice || 0;
       renderQueue(data.queue);
     }
   } catch (e) {}

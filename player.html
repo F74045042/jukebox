@@ -401,6 +401,20 @@
       <input type="number" id="setSkipVotes" min="0" step="1">
       <div class="hint2">客人投票達這個人數就自動跳過現正播放。0 = 關閉投票。</div>
     </div>
+
+    <div class="sec-label">付費插播</div>
+    <div class="field switch-row">
+      <div>
+        <label style="margin:0;">開放客人付費插播</label>
+        <div class="hint2">客人可付費把自己點的歌排到最前面（下一首就播）。</div>
+      </div>
+      <label class="switch"><input type="checkbox" id="setPaidBump"><span class="slider"></span></label>
+    </div>
+    <div class="field">
+      <label>插播費用（元）</label>
+      <input type="number" id="setBumpPrice" min="0" step="1">
+      <div class="hint2">顯示給客人看的插播金額。測試期間可設為 0。</div>
+    </div>
     <div class="settings-actions">
       <button class="btn-cancel" onclick="closeSettings()">取消</button>
       <button class="btn-save" onclick="saveSettingsPanel()">儲存</button>
@@ -474,7 +488,7 @@ let playerReady = false;
 let currentSong = null;
 let started = false;
 let queueCache = [];
-let settings = { cooldownMin: 0, maxPerTable: 3, playHistoryWhenIdle: false, dailySearchLimit: 95, searchCount: 8, musicOnly: true, blockWords: '', maxSongMin: 0, openHour: 0, closeHour: 0, skipVotesNeeded: 0 };
+let settings = { cooldownMin: 0, maxPerTable: 3, playHistoryWhenIdle: false, dailySearchLimit: 95, searchCount: 8, musicOnly: true, blockWords: '', maxSongMin: 0, openHour: 0, closeHour: 0, skipVotesNeeded: 0, paidBumpEnabled: false, bumpPrice: 0 };
 let historyList = [];
 
 async function api(action, params = {}) {
@@ -502,6 +516,8 @@ async function loadSettings() {
       settings.openHour = s.openHour || 0;
       settings.closeHour = s.closeHour || 0;
       settings.skipVotesNeeded = s.skipVotesNeeded || 0;
+      settings.paidBumpEnabled = !!s.paidBumpEnabled;
+      settings.bumpPrice = s.bumpPrice || 0;
     }
   } catch (e) {}
 }
@@ -517,6 +533,8 @@ function openSettings() {
   document.getElementById('setCloseHour').value = settings.closeHour;
   document.getElementById('setBlockWords').value = settings.blockWords;
   document.getElementById('setSkipVotes').value = settings.skipVotesNeeded;
+  document.getElementById('setPaidBump').checked = settings.paidBumpEnabled;
+  document.getElementById('setBumpPrice').value = settings.bumpPrice;
   document.getElementById('settingsOverlay').style.display = 'flex';
 }
 function closeSettings() { document.getElementById('settingsOverlay').style.display = 'none'; }
@@ -566,8 +584,10 @@ async function saveSettingsPanel() {
   const closeHour = Math.min(24, Math.max(0, parseInt(document.getElementById('setCloseHour').value, 10) || 0));
   const blockWords = document.getElementById('setBlockWords').value;
   const skipVotesNeeded = Math.max(0, parseInt(document.getElementById('setSkipVotes').value, 10) || 0);
+  const paidBumpEnabled = document.getElementById('setPaidBump').checked;
+  const bumpPrice = Math.max(0, parseInt(document.getElementById('setBumpPrice').value, 10) || 0);
   try {
-    const r = await api('saveSettings', { cooldownMin, maxPerTable, playHistoryWhenIdle, searchCount, dailySearchLimit, musicOnly, maxSongMin, openHour, closeHour, blockWords, skipVotesNeeded });
+    const r = await api('saveSettings', { cooldownMin, maxPerTable, playHistoryWhenIdle, searchCount, dailySearchLimit, musicOnly, maxSongMin, openHour, closeHour, blockWords, skipVotesNeeded, paidBumpEnabled, bumpPrice });
     if (r.success) {
       settings.cooldownMin = r.cooldownMin;
       settings.maxPerTable = r.maxPerTable;
@@ -580,6 +600,8 @@ async function saveSettingsPanel() {
       settings.openHour = r.openHour || 0;
       settings.closeHour = r.closeHour || 0;
       settings.skipVotesNeeded = r.skipVotesNeeded || 0;
+      settings.paidBumpEnabled = !!r.paidBumpEnabled;
+      settings.bumpPrice = r.bumpPrice || 0;
     }
   } catch (e) {}
   closeSettings();
