@@ -2,12 +2,12 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>點唱機 ｜ 播放中</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;900&family=Manrope:wght@500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<meta name="theme-color" content="#0a0a0f">
+<meta name="theme-color" content="#0e0b09">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -59,7 +59,7 @@
       radial-gradient(70% 55% at 88% 105%, rgba(176,60,40,0.18) 0%, transparent 58%),
       var(--bg);
   }
-  .stage > .brand, .stage > #idleView, .stage > #playingView{ position:relative; z-index:3; }
+  .stage > #idleView, .stage > #playingView{ position:relative; z-index:3; }
 
   .brand{
     position:absolute; top:30px; left:36px; z-index:4;
@@ -198,10 +198,12 @@
   .gear{
     position:fixed; top:24px; right:26px; z-index:40;
     width:46px; height:46px; border-radius:13px; cursor:pointer;
-    background:var(--glass); border:1px solid var(--border-strong); color:var(--text);
-    font-size:20px; backdrop-filter:blur(8px); transition:transform .2s, background .14s;
+    display:inline-flex; align-items:center; justify-content:center;
+    background:var(--glass); border:1px solid var(--border-strong); color:var(--muted);
+    backdrop-filter:blur(8px); transition:transform .16s, background .14s, color .14s;
   }
-  .gear:hover{ background:rgba(255,255,255,0.1); transform:rotate(45deg); }
+  .gear svg{ width:21px; height:21px; display:block; }
+  .gear:hover{ background:rgba(255,255,255,0.1); color:var(--text); transform:translateY(-1px); }
   .settings-overlay{
     position:fixed; inset:0; z-index:110; display:none;
     align-items:center; justify-content:center; padding:24px;
@@ -247,12 +249,68 @@
   }
   .btn-cancel{ background:var(--glass); border:1px solid var(--border-strong); color:var(--text); }
   .btn-save{ background:var(--grad); border:none; color:#2a1206; }
+
+  /* ====== 手機 / 直式平板：上下堆疊、縮小黑膠、可捲動 ====== */
+  @media (max-width: 860px){
+    html,body{ height:auto; }
+    body{
+      flex-direction:column; height:auto; min-height:100vh; overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+    .stage{
+      flex:none; width:100%; min-height:100vh;
+      border-right:none; border-bottom:1px solid var(--border);
+      justify-content:flex-start; padding:78px 18px 40px;
+    }
+    /* 標題移到正常文件流的頂端，不再壓在黑膠上 */
+    .brand{ position:static; margin:0 auto 26px; font-size:19px; }
+    #idleView, #playingView{ flex:1; justify-content:center; }
+
+    .art-wrap, .vinyl{ width:min(62vw,260px); height:min(62vw,260px); }
+    .art-glow{ inset:-22px; }
+    .vinyl-label{ width:38%; height:38%; }
+
+    .now-title{ margin-top:30px; font-size:clamp(19px,5.4vw,24px); }
+    .now-meta{ margin-top:13px; }
+    .controls{ margin-top:28px; }
+    .ctl-btn{ padding:12px 22px; font-size:13.5px; }
+
+    .sidebar{ flex:none; width:100%; padding:26px 18px 40px; }
+
+    .gear{ top:16px; width:42px; height:42px; font-size:18px; }
+    .gear[title="設定"]{ right:18px; }
+    .gear[title="熱門統計"]{ right:68px; }
+  }
+  @media (max-width: 420px){
+    .stage{ padding-top:70px; }
+    .now-title{ font-size:18px; }
+    .settings-card{ padding:22px 18px; }
+  }
+
+  /* ===== 上線強化：安全區、無障礙、減少動態 ===== */
+  *{ -webkit-tap-highlight-color:transparent; }
+  html{ overscroll-behavior:none; }
+  button:focus-visible, input:focus-visible, .switch input:focus-visible + .slider{ outline:2px solid var(--ember); outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+  }
+  @supports (padding: max(0px)){
+    .gear{ top:max(24px, calc(env(safe-area-inset-top) + 8px)); }
+    @media (max-width: 860px){
+      .stage{
+        padding-top:max(78px, calc(env(safe-area-inset-top) + 64px));
+        padding-left:max(18px, env(safe-area-inset-left));
+        padding-right:max(18px, env(safe-area-inset-right));
+      }
+      .sidebar{ padding-bottom:max(40px, calc(env(safe-area-inset-bottom) + 24px)); }
+    }
+  }
 </style>
 </head>
 <body>
 
-<button class="gear" onclick="openStats()" title="熱門統計" style="right:80px;">📊</button>
-<button class="gear" onclick="openSettings()" title="設定">⚙️</button>
+<button class="gear" onclick="openStats()" title="熱門統計" aria-label="熱門統計" style="right:80px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="13"></line><line x1="12" y1="20" x2="12" y2="8"></line><line x1="18" y1="20" x2="18" y2="11"></line></svg></button>
+<button class="gear" onclick="openSettings()" title="設定" aria-label="設定"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
 
 <div class="settings-overlay" id="statsOverlay">
   <div class="settings-card">
@@ -389,6 +447,13 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbz8ky7ggwMMmGFxM6N1qFan0barLR_T02vqyQT656l2wTs4yFKx0Oa5MnxZ5hhNKJL71w/exec'; // 換成你部署後的 .../exec 網址
+
+// ---- 上線強化：縮圖載入失敗時的後備圖 ----
+const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%231a1410'/%3E%3Ctext x='60' y='78' font-size='54' text-anchor='middle' fill='%23f0743c'%3E%E2%99%AA%3C/text%3E%3C/svg%3E";
+document.addEventListener('error', function (e) {
+  const el = e.target;
+  if (el && el.tagName === 'IMG' && el.dataset.fb !== '1') { el.dataset.fb = '1'; el.src = FALLBACK_IMG; }
+}, true);
 
 // 管理通關碼：用 player.html?key=xxxx 開啟一次即會記住（存 localStorage），控制動作（跳過/刪除/清空/改設定）才有權限
 const ADMIN_KEY = (function () {

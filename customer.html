@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>點唱機 ｜ 點一首歌</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -256,6 +256,24 @@
     animation:spinload .7s linear infinite; vertical-align:middle; margin-right:8px;
   }
   @keyframes spinload{ to{ transform:rotate(360deg); } }
+
+  /* ===== 上線強化：安全區、無障礙、減少動態 ===== */
+  *{ -webkit-tap-highlight-color:transparent; }
+  html{ overscroll-behavior:none; }
+  button:focus-visible, input:focus-visible, .tab:focus-visible{ outline:2px solid var(--ember); outline-offset:2px; }
+  .langsw button{ min-height:32px; }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+  }
+  @supports (padding: max(0px)){
+    .topbar{
+      padding-top:max(16px, calc(env(safe-area-inset-top) + 10px));
+      padding-left:max(18px, env(safe-area-inset-left));
+      padding-right:max(18px, env(safe-area-inset-right));
+    }
+    .wrap{ padding-left:max(18px, env(safe-area-inset-left)); padding-right:max(18px, env(safe-area-inset-right)); }
+    body{ padding-bottom:max(48px, calc(env(safe-area-inset-bottom) + 24px)); }
+  }
 </style>
 </head>
 <body>
@@ -319,6 +337,13 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbz8ky7ggwMMmGFxM6N1qFan0barLR_T02vqyQT656l2wTs4yFKx0Oa5MnxZ5hhNKJL71w/exec'; // 換成你部署後的 .../exec 網址
+
+// ---- 上線強化：縮圖載入失敗時的後備圖 ----
+const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%231a1410'/%3E%3Ctext x='60' y='78' font-size='54' text-anchor='middle' fill='%23f0743c'%3E%E2%99%AA%3C/text%3E%3C/svg%3E";
+document.addEventListener('error', function (e) {
+  const el = e.target;
+  if (el && el.tagName === 'IMG' && el.dataset.fb !== '1') { el.dataset.fb = '1'; el.src = FALLBACK_IMG; }
+}, true);
 
 // ---- 桌號處理 ----
 function getTable() {
@@ -491,7 +516,7 @@ async function doSearch() {
           <div class="title">${escapeHtml(r.title)}</div>
           <div class="channel">${escapeHtml(r.channel)}</div>
         </div>
-        <button class="add-btn" onclick="addToQueue(${attrJson(r.videoId)}, ${attrJson(r.title)}, ${attrJson(r.thumbnail)}, this)">＋</button>
+        <button class="add-btn" aria-label="加入佇列" onclick="addToQueue(${attrJson(r.videoId)}, ${attrJson(r.title)}, ${attrJson(r.thumbnail)}, this)">＋</button>
       </div>
     `).join('');
   } catch (e) {
@@ -518,7 +543,7 @@ async function doLinkLookup() {
         <div class="result-info">
           <div class="title">${escapeHtml(data.title)}</div>
         </div>
-        <button class="add-btn" onclick="addToQueue(${attrJson(data.videoId)}, ${attrJson(data.title)}, ${attrJson(data.thumbnail)}, this)">＋</button>
+        <button class="add-btn" aria-label="加入佇列" onclick="addToQueue(${attrJson(data.videoId)}, ${attrJson(data.title)}, ${attrJson(data.thumbnail)}, this)">＋</button>
       </div>
     `;
   } catch (e) {
