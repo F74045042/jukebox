@@ -260,7 +260,8 @@
     <div class="desc" id="statsSummary">統計中…</div>
     <div id="statsList"></div>
     <div class="settings-actions">
-      <button class="btn-cancel" onclick="closeStats()">關閉</button>
+      <button class="btn-cancel" onclick="clearHistory()">🗑 清空歷史</button>
+      <button class="btn-save" onclick="closeStats()">關閉</button>
     </div>
   </div>
 </div>
@@ -474,6 +475,13 @@ async function openStats() {
   }
 }
 function closeStats() { document.getElementById('statsOverlay').style.display = 'none'; }
+async function clearHistory() {
+  if (!confirm('確定要清空所有播放歷史與統計嗎？此動作無法復原。')) return;
+  try { await api('clearHistory'); } catch (e) {}
+  historyList = [];
+  renderHistory();
+  openStats();
+}
 async function saveSettingsPanel() {
   const cooldownMin = Math.max(0, parseInt(document.getElementById('setCooldown').value, 10) || 0);
   const maxPerTable = Math.max(1, parseInt(document.getElementById('setMax').value, 10) || 1);
