@@ -58,6 +58,7 @@
     border-bottom:1px solid var(--border);
     padding:16px 18px 14px;
   }
+  .topbar > *{ max-width:540px; margin-left:auto; margin-right:auto; }
   .brand{ display:flex; align-items:center; gap:10px; }
   .brand .dot{
     width:10px; height:10px; border-radius:50%; background:var(--ember);
@@ -108,6 +109,18 @@
     background:rgba(240,116,60,0.17); color:#ffb088;
     border-color:rgba(240,116,60,0.48);
     box-shadow:0 0 22px -6px var(--glow);
+  }
+
+  .seg{ display:flex; gap:6px; margin-bottom:11px; }
+  .seg-btn{
+    flex:1; padding:9px 0; border-radius:11px; cursor:pointer;
+    border:1px solid var(--border); background:var(--glass);
+    color:var(--muted); font-weight:700; font-size:13.5px; font-family:inherit;
+    transition:all .16s ease;
+  }
+  .seg-btn.active{
+    background:rgba(240,116,60,0.17); color:#ffb088;
+    border-color:rgba(240,116,60,0.48); box-shadow:0 0 18px -7px var(--glow);
   }
 
   .search-box{ display:flex; gap:9px; margin-bottom:16px; }
@@ -274,6 +287,10 @@
   </div>
 
   <div id="searchPane">
+    <div class="seg">
+      <button class="seg-btn active" id="segSong" onclick="setSearchMode('song')" data-i18n="modeSong">🎵 歌曲</button>
+      <button class="seg-btn" id="segArtist" onclick="setSearchMode('artist')" data-i18n="modeArtist">🎤 歌手</button>
+    </div>
     <div class="search-box">
       <input type="text" id="searchInput" data-i18n-ph="searchPh" placeholder="輸入歌名或歌手..." onkeydown="if(event.key==='Enter')doSearch()">
       <button class="go" id="searchBtn" onclick="doSearch()" data-i18n="searchBtn">搜尋</button>
@@ -320,6 +337,7 @@ document.getElementById('tableNo').textContent = TABLE;
 const I18N = {
   zh: { sub:'掃桌上 QR，點一首你想聽的歌', table:'桌號', canOrder:'本桌可點', songUnit:'首', todaySearch:'今日搜尋', cooldown:'冷卻中',
     tabSearch:'搜尋歌曲', tabLink:'貼上連結', searchPh:'輸入歌名或歌手...', searchBtn:'搜尋', linkPh:'貼上 YouTube 影片連結...', lookupBtn:'查詢',
+    modeSong:'🎵 歌曲', modeArtist:'🎤 歌手', artistPh:'輸入歌手名稱，找熱門歌...',
     linkHint:'在 YouTube App 找到想點的歌，按「分享」→「複製連結」，貼到這裡即可，不會占用搜尋次數。',
     upNext:'目前排隊中', nowPlaying:'🎵 現正播放', voteBtn:'想跳過 {a}/{b}', searching:'搜尋中...', lookingUp:'查詢中...',
     noResults:'找不到符合的歌曲，換個關鍵字試試？', connFail:'連線失敗，請稍後再試', searchFail:'搜尋失敗：{e}', queueEmpty:'目前還沒有人點歌，當第一個吧！',
@@ -328,6 +346,7 @@ const I18N = {
     eCooldown:'本桌已點滿，冷卻中請稍候再點', eLimit:'本桌已達點歌上限，請等播放完再點', eClosed:'目前非開放點歌時間', eBlocked:'這首歌不開放點播', eTooLong:'歌曲太長，請改點短一點的', eQuota:'今日搜尋次數已用完，請改用「貼上連結」' },
   en: { sub:'Scan the QR on your table and request a song', table:'Table', canOrder:'Can order', songUnit:'', todaySearch:'Searches left', cooldown:'Cooldown',
     tabSearch:'Search', tabLink:'Paste link', searchPh:'Song or artist...', searchBtn:'Search', linkPh:'Paste a YouTube link...', lookupBtn:'Look up',
+    modeSong:'🎵 Songs', modeArtist:'🎤 Artist', artistPh:'Artist name — find top songs...',
     linkHint:'Find the song in the YouTube app, tap Share → Copy link, and paste it here. This does not use search quota.',
     upNext:'Up next', nowPlaying:'🎵 Now playing', voteBtn:'Skip {a}/{b}', searching:'Searching...', lookingUp:'Looking up...',
     noResults:'No matches, try another keyword.', connFail:'Connection failed, please try again', searchFail:'Search failed: {e}', queueEmpty:'No songs yet — be the first!',
@@ -336,6 +355,7 @@ const I18N = {
     eCooldown:'Table is full and cooling down, please wait', eLimit:'Table reached its limit, wait for songs to finish', eClosed:'Ordering is closed right now', eBlocked:'This song is not allowed', eTooLong:'Song too long, pick a shorter one', eQuota:"Search limit reached today, please paste a link" },
   ja: { sub:'テーブルのQRを読み取って曲をリクエスト', table:'卓番', canOrder:'リクエスト可', songUnit:'曲', todaySearch:'本日の検索', cooldown:'クールダウン',
     tabSearch:'検索', tabLink:'リンク貼付', searchPh:'曲名やアーティスト...', searchBtn:'検索', linkPh:'YouTubeのリンクを貼付...', lookupBtn:'確認',
+    modeSong:'🎵 曲', modeArtist:'🎤 歌手', artistPh:'歌手名を入力、人気曲を検索...',
     linkHint:'YouTubeアプリで曲を見つけ、共有→リンクをコピーしてここに貼り付け。検索回数は消費しません。',
     upNext:'再生待ち', nowPlaying:'🎵 再生中', voteBtn:'スキップ {a}/{b}', searching:'検索中...', lookingUp:'確認中...',
     noResults:'見つかりません。別のキーワードでお試しを。', connFail:'接続に失敗しました', searchFail:'検索失敗：{e}', queueEmpty:'まだリクエストがありません。最初の一曲を！',
@@ -359,6 +379,10 @@ function applyLang() {
   document.querySelectorAll('[data-i18n]').forEach(function (el) { el.textContent = t(el.getAttribute('data-i18n')); });
   document.querySelectorAll('[data-i18n-ph]').forEach(function (el) { el.placeholder = t(el.getAttribute('data-i18n-ph')); });
   document.querySelectorAll('#langsw button').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-lang') === LANG); });
+  // 歌手模式時，搜尋框 placeholder 改用歌手提示（覆蓋上面的 data-i18n-ph 預設）
+  if (typeof searchMode !== 'undefined' && searchMode === 'artist') {
+    document.getElementById('searchInput').placeholder = t('artistPh');
+  }
   renderCooldown();
   renderQueue(currentQueue);
 }
@@ -426,6 +450,14 @@ async function refreshTableStatus() {
 }
 
 // ---- 搜尋 ----
+let searchMode = 'song';   // 'song'：依關聯度搜尋；'artist'：依觀看次數回傳該歌手熱門歌曲
+function setSearchMode(m) {
+  searchMode = m;
+  document.getElementById('segSong').classList.toggle('active', m === 'song');
+  document.getElementById('segArtist').classList.toggle('active', m === 'artist');
+  document.getElementById('searchInput').placeholder = t(m === 'artist' ? 'artistPh' : 'searchPh');
+  document.getElementById('searchInput').focus();
+}
 async function doSearch() {
   const q = document.getElementById('searchInput').value.trim();
   if (!q) return;
@@ -434,7 +466,7 @@ async function doSearch() {
   const resultsEl = document.getElementById('searchResults');
   resultsEl.innerHTML = '<div class="loader"><span class="spin"></span>' + t('searching') + '</div>';
   try {
-    const data = await api('search', { query: q });
+    const data = await api('search', { query: q, mode: searchMode });
     btn.disabled = false;
     if (!data.success) {
       if (data.error === 'QUOTA_EXCEEDED') {
