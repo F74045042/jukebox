@@ -9,7 +9,6 @@ export default function CustomerView({ venueId }: { venueId: string }) {
   const { queue, config, skipVotes } = useVenue(venueId);
   const [table, setTable] = useState('未指定');
   const [lang, setLang] = useState<Lang>('zh');
-  const [mode, setMode] = useState<'song' | 'artist'>('song');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -46,7 +45,7 @@ export default function CustomerView({ venueId }: { venueId: string }) {
       const r = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: query.trim(), mode, venueId }),
+        body: JSON.stringify({ query: query.trim(), venueId }),
       }).then((x) => x.json());
       if (r.success) setResults(r.results || []);
       else if (r.error === 'QUOTA_EXCEEDED') flash(t('quotaOut'));
@@ -101,8 +100,6 @@ export default function CustomerView({ venueId }: { venueId: string }) {
     }
   }
 
-  const segCls = (on: boolean) =>
-    `flex-1 rounded-xl border py-2.5 text-sm font-bold transition card ${on ? 'seg-on' : 'text-[var(--muted)]'}`;
   const langCls = (on: boolean) => `rounded-md px-2 py-1 text-xs font-bold ${on ? 'seg-on border' : 'text-[var(--faint)]'}`;
 
   return (
@@ -126,17 +123,12 @@ export default function CustomerView({ venueId }: { venueId: string }) {
         </div>
       </header>
 
-      <div className="mb-3 flex gap-2">
-        <button onClick={() => setMode('song')} className={segCls(mode === 'song')}>{t('modeSong')}</button>
-        <button onClick={() => setMode('artist')} className={segCls(mode === 'artist')}>{t('modeArtist')}</button>
-      </div>
-
       <div className="mb-5 flex gap-2">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && doSearch()}
-          placeholder={mode === 'artist' ? t('artistPh') : t('searchPh')}
+          placeholder={t('searchPh')}
           className="input-ember flex-1 rounded-xl px-4 py-3 text-sm placeholder:text-[var(--faint)]"
         />
         <button onClick={doSearch} disabled={searching} className="btn-ember rounded-xl px-5 text-sm disabled:opacity-50">
