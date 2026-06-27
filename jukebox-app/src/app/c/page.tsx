@@ -7,7 +7,7 @@ import type { SearchResult } from '@/lib/types';
 const VENUE_ID = process.env.NEXT_PUBLIC_DEFAULT_VENUE_ID!;
 
 export default function CustomerPage() {
-  const { queue, config } = useVenue(VENUE_ID);
+  const { queue, config, skipVotes } = useVenue(VENUE_ID);
   const [table, setTable] = useState('未指定');
   const [mode, setMode] = useState<'song' | 'artist'>('song');
   const [query, setQuery] = useState('');
@@ -58,6 +58,20 @@ export default function CustomerPage() {
         body: JSON.stringify({ table, venueId: VENUE_ID, videoId: r.videoId, title: r.title, thumbnail: r.thumbnail }),
       }).then((x) => x.json());
       if (!res.success) flash(res.message || '加入失敗');
+    } catch {
+      flash('連線失敗，請稍後再試');
+    }
+  }
+
+  async function voteSkip(id: string) {
+    try {
+      const res = await fetch('/api/vote-skip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, table, venueId: VENUE_ID }),
+      }).then((x) => x.json());
+      if (res.success) flash(res.skipped ? '🗳 投票通過，已跳過！' : `🗳 已投票（${res.votes}/${res.needed}）`);
+      else if (res.error !== 'DISABLED') flash('投票失敗');
     } catch {
       flash('連線失敗，請稍後再試');
     }
@@ -133,10 +147,15 @@ export default function CustomerPage() {
         <div className="mb-4 flex items-center gap-3 rounded-xl border border-[rgba(240,116,60,0.3)] bg-[rgba(240,116,60,0.1)] p-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={playing.thumbnail || `https://i.ytimg.com/vi/${playing.video_id}/default.jpg`} alt="" className="h-12 w-12 rounded-lg object-cover" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="text-xs text-[#ffb088]">🎵 現正播放</div>
             <div className="truncate text-sm font-medium">{playing.title}</div>
           </div>
+          {config.skipVotesNeeded > 0 && (
+            <button onClick={() => voteSkip(playing.id)} className="shrink-0 rounded-lg border border-[var(--border-strong)] bg-[var(--glass)] px-3 py-2 text-xs font-bold text-[var(--muted)]">
+              想跳過 {skipVotes}/{config.skipVotesNeeded}
+            </button>
+          )}
         </div>
       )}
 

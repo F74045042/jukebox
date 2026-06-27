@@ -9,7 +9,21 @@ export function useVenue(venueId: string) {
   const [queue, setQueue] = useState<Song[]>([]);
   const [history, setHistory] = useState<Song[]>([]);
   const [config, setConfig] = useState<VenueConfig>(DEFAULT_CONFIG);
+  const [skipVotes, setSkipVotes] = useState(0);
   const supabaseRef = useRef(createClient());
+  const playingIdRef = useRef<string | null>(null);
+
+  const reloadVotes = useCallback(async (playingId: string | null) => {
+    if (!playingId) {
+      setSkipVotes(0);
+      return;
+    }
+    const { count } = await supabaseRef.current
+      .from('skip_votes')
+      .select('*', { count: 'exact', head: true })
+      .eq('song_id', playingId);
+    setSkipVotes(count ?? 0);
+  }, []);
 
   const reload = useCallback(async () => {
     const { data } = await supabaseRef.current
@@ -18,8 +32,12 @@ export function useVenue(venueId: string) {
       .eq('venue_id', venueId)
       .in('status', ['waiting', 'playing'])
       .order('position', { ascending: true });
-    setQueue((data ?? []) as Song[]);
-  }, [venueId]);
+    const list = (data ?? []) as Song[];
+    setQueue(list);
+    const playing = list.find((s) => s.status === 'playing');
+    playingIdRef.current = playing?.id ?? null;
+    reloadVotes(playing?.id ?? null);
+  }, [venueId, reloadVotes]);
 
   const reloadHistory = useCallback(async () => {
     const { data } = await supabaseRef.current
@@ -55,11 +73,14 @@ export function useVenue(venueId: string) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'venue_settings', filter: `venue_id=eq.${venueId}` }, () => {
         reloadConfig();
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'skip_votes', filter: `venue_id=eq.${venueId}` }, () => {
+        reloadVotes(playingIdRef.current);
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [venueId, reload, reloadHistory, reloadConfig]);
+  }, [venueId, reload, reloadHistory, reloadConfig, reloadVotes]);
 
-  return { queue, history, config, reload, reloadHistory, reloadConfig };
+  return { queue, history, config, skipVotes, reload, reloadHistory, reloadConfig };
 }
