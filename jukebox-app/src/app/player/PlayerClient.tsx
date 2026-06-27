@@ -74,7 +74,7 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
   const handleEnded = useCallback(() => {
     const cur = currentRef.current;
     if (cur && !cur.isHistory) {
-      admin('markPlayed', { id: cur.id }); // realtime 會移除並讓 sync 接下一首
+      admin('markPlayed', { id: cur.id });
     } else {
       idleIdxRef.current += 1;
       playIdle();
@@ -82,7 +82,6 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playIdle]);
 
-  // 建立 YouTube 播放器（一次）
   useEffect(() => {
     const createPlayer = () => {
       if (!window.YT) return;
@@ -92,7 +91,7 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
         playerVars: { autoplay: 1, controls: 1, rel: 0, playsinline: 1 },
         events: {
           onStateChange: (e: { data: number }) => {
-            if (e.data === 0) handleEnded(); // 0 = ENDED
+            if (e.data === 0) handleEnded();
           },
         },
       });
@@ -107,7 +106,6 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
     }
   }, [handleEnded]);
 
-  // 依佇列/設定決定播什麼
   useEffect(() => {
     if (!started) return;
     const playing = queue.find((s) => s.status === 'playing');
@@ -148,16 +146,21 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
   const waiting = queue.filter((s) => s.status === 'waiting');
 
   return (
-    <main className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 lg:flex-row">
+    <main className="flex min-h-screen flex-col lg:flex-row">
       {/* 舞台 */}
       <section className="relative flex flex-1 flex-col items-center justify-center p-6">
-        <div className="absolute right-4 top-4 flex items-center gap-2 text-xs text-zinc-400">
-          <span>{email}</span>
-          <button onClick={() => setShowSettings(true)} className="rounded-lg bg-white/10 px-3 py-1.5">⚙️ 設定</button>
-          <button onClick={logout} className="rounded-lg bg-white/10 px-3 py-1.5">登出</button>
+        <div className="absolute right-4 top-4 z-10 flex items-center gap-2 text-xs text-[var(--muted)]">
+          <span className="hidden sm:inline">{email}</span>
+          <button onClick={() => setShowSettings(true)} className="card rounded-lg px-3 py-1.5">⚙️ 設定</button>
+          <button onClick={logout} className="card rounded-lg px-3 py-1.5">登出</button>
         </div>
 
-        <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-2xl bg-black">
+        <div className="absolute left-6 top-5 flex items-center gap-2">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ember)]" />
+          <span className="font-bold tracking-wide">點唱機</span>
+        </div>
+
+        <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-black shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]">
           <div id="yt" className="h-full w-full" />
         </div>
 
@@ -165,65 +168,66 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
           {now ? (
             <>
               <div className="text-lg font-semibold">{now.title}</div>
-              <div className="text-sm text-zinc-400">{now.isHistory ? '🎞️ 歷史回放' : `${now.table_label}桌 點播`}</div>
+              <div className="mt-1 text-sm text-[var(--muted)]">{now.isHistory ? '🎞️ 歷史回放' : `${now.table_label}桌 點播`}</div>
             </>
           ) : (
-            <div className="text-zinc-500">目前沒有歌曲播放</div>
+            <div className="text-[var(--faint)]">目前沒有歌曲播放</div>
           )}
         </div>
 
         {now && !now.isHistory && currentRef.current && (
           <div className="mt-4 flex gap-2">
-            <button onClick={() => admin('skipSong', { id: currentRef.current!.id })} className="rounded-xl bg-white/10 px-5 py-2 text-sm font-bold">跳過</button>
-            <button onClick={() => admin('clearQueue')} className="rounded-xl bg-white/10 px-5 py-2 text-sm font-bold">清空佇列</button>
+            <button onClick={() => admin('skipSong', { id: currentRef.current!.id })} className="card rounded-xl px-5 py-2 text-sm font-bold">跳過</button>
+            <button onClick={() => admin('clearQueue')} className="card rounded-xl px-5 py-2 text-sm font-bold">清空佇列</button>
           </div>
         )}
 
         {!started && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-zinc-950/90">
-            <p className="text-zinc-300">點一下開始播放，之後自動接續</p>
-            <button onClick={unlock} className="rounded-xl bg-orange-500 px-8 py-3 font-bold text-zinc-900">▶ 開始播放</button>
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-[rgba(14,11,9,0.92)] backdrop-blur-sm">
+            <div className="vinyl h-28 w-28" />
+            <p className="text-[var(--muted)]">點一下開始播放，之後自動接續</p>
+            <button onClick={unlock} className="btn-ember rounded-xl px-8 py-3 text-base">▶ 開始播放</button>
           </div>
         )}
       </section>
 
       {/* 側欄 */}
-      <aside className="w-full border-t border-white/10 p-5 lg:w-96 lg:border-l lg:border-t-0">
-        <h2 className="mb-2 text-sm font-bold">接下來播放</h2>
+      <aside className="w-full border-t border-[var(--border)] p-5 lg:w-96 lg:border-l lg:border-t-0">
+        <h2 className="mb-3 text-sm font-bold">接下來播放</h2>
         {waiting.length === 0 ? (
-          <p className="py-4 text-sm text-zinc-500">佇列已空，等待新的點歌～</p>
+          <p className="py-4 text-sm text-[var(--faint)]">佇列已空，等待新的點歌～</p>
         ) : (
           <div className="space-y-2">
             {waiting.map((s, i) => (
-              <div key={s.id} className="flex items-center gap-2 rounded-xl bg-white/5 p-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded bg-white/5 font-mono text-xs">{i + 1}</span>
+              <div key={s.id} className="card flex items-center gap-2 rounded-xl p-2">
+                <span className="mono flex h-6 w-6 items-center justify-center rounded bg-[var(--glass)] text-xs">{i + 1}</span>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={s.thumbnail || `https://i.ytimg.com/vi/${s.video_id}/default.jpg`} alt="" className="h-9 w-9 rounded object-cover" />
                 <span className="min-w-0 flex-1 truncate text-sm">{s.title}</span>
-                <button onClick={() => admin('bumpSong', { id: s.id })} title="置頂" className="text-zinc-400 hover:text-orange-300">⬆</button>
-                <button onClick={() => admin('deleteSong', { id: s.id })} title="刪除" className="text-zinc-400 hover:text-red-400">✕</button>
+                <button onClick={() => admin('bumpSong', { id: s.id })} title="置頂" className="text-[var(--faint)] hover:text-[#ffb088]">⬆</button>
+                <button onClick={() => admin('deleteSong', { id: s.id })} title="刪除" className="text-[var(--faint)] hover:text-[var(--danger)]">✕</button>
               </div>
             ))}
           </div>
         )}
 
-        <h2 className="mb-2 mt-6 text-sm font-bold">🎞️ 歷史歌單</h2>
+        <h2 className="mb-3 mt-7 text-sm font-bold">🎞️ 歷史歌單</h2>
         {history.length === 0 ? (
-          <p className="py-4 text-sm text-zinc-500">還沒有播放紀錄</p>
+          <p className="py-4 text-sm text-[var(--faint)]">還沒有播放紀錄</p>
         ) : (
           <div className="space-y-2">
             {history.slice(0, 30).map((s) => (
-              <div key={s.id} className="flex items-center gap-2 rounded-xl bg-white/5 p-2">
+              <div key={s.id} className="card flex items-center gap-2 rounded-xl p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={s.thumbnail || `https://i.ytimg.com/vi/${s.video_id}/default.jpg`} alt="" className="h-9 w-9 rounded object-cover" />
-                <span className="min-w-0 flex-1 truncate text-sm text-zinc-300">{s.title}</span>
+                <span className="min-w-0 flex-1 truncate text-sm text-[var(--muted)]">{s.title}</span>
               </div>
             ))}
           </div>
         )}
       </aside>
 
-      {showSettings && <SettingsModal venueId={venueId} config={config} onClose={() => setShowSettings(false)} admin={admin} />}
+      {showSettings && <SettingsModal config={config} onClose={() => setShowSettings(false)} admin={admin} />}
     </main>
   );
 }
@@ -233,7 +237,6 @@ function SettingsModal({
   onClose,
   admin,
 }: {
-  venueId: string;
   config: VenueConfig;
   onClose: () => void;
   admin: (action: string, extra?: Record<string, unknown>) => Promise<unknown>;
@@ -251,16 +254,15 @@ function SettingsModal({
     onClose();
   }
 
-  const num = (k: keyof VenueConfig, label: string, hint?: string) => (
+  const num = (k: keyof VenueConfig, label: string) => (
     <label className="block">
       <span className="text-sm">{label}</span>
       <input
         type="number"
         value={draft[k] as number}
         onChange={(e) => set(k, (parseInt(e.target.value, 10) || 0) as VenueConfig[typeof k])}
-        className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-orange-400"
+        className="input-ember mt-1 w-full rounded-lg px-3 py-2 text-sm"
       />
-      {hint && <span className="text-xs text-zinc-500">{hint}</span>}
     </label>
   );
   const toggle = (k: keyof VenueConfig, label: string) => (
@@ -272,7 +274,7 @@ function SettingsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-zinc-900 p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="card max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-4 text-lg font-bold">設定</h2>
         <div className="space-y-3">
           {num('maxPerTable', '每桌可點幾首')}
@@ -290,7 +292,7 @@ function SettingsModal({
               type="text"
               value={draft.blockWords}
               onChange={(e) => set('blockWords', e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-orange-400"
+              className="input-ember mt-1 w-full rounded-lg px-3 py-2 text-sm"
             />
           </label>
           {toggle('musicOnly', '只搜音樂類別')}
@@ -298,8 +300,8 @@ function SettingsModal({
           {toggle('paidBumpEnabled', '開放客人付費插播')}
         </div>
         <div className="mt-5 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-xl bg-white/10 px-4 py-2 text-sm">取消</button>
-          <button onClick={save} disabled={busy} className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-zinc-900 disabled:opacity-50">
+          <button onClick={onClose} className="card rounded-xl px-4 py-2 text-sm">取消</button>
+          <button onClick={save} disabled={busy} className="btn-ember rounded-xl px-4 py-2 text-sm disabled:opacity-50">
             {busy ? '儲存中…' : '儲存'}
           </button>
         </div>
