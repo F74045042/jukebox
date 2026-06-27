@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_TC, DM_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -17,6 +17,15 @@ const mono = DM_Mono({
 export const metadata: Metadata = {
   title: "點唱機",
   description: "即時點歌系統",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "點唱機" },
+  icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0e0b09",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

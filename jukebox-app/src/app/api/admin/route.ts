@@ -51,6 +51,19 @@ export async function POST(req: Request) {
       await admin.from('songs').delete().eq('venue_id', vid).eq('status', 'played');
       return NextResponse.json({ success: true });
     }
+    case 'hideHistory': {
+      // 從歷史回放清單移除（隱藏，不刪除原始紀錄/統計）
+      await admin.from('songs').update({ hidden: true }).eq('id', body.id).eq('venue_id', vid);
+      return NextResponse.json({ success: true });
+    }
+    case 'reorderHistory': {
+      // body.ids：新的歷史排序（videoId 不可靠，用 song id）。逐列寫入 replay_position。
+      const ids: string[] = Array.isArray(body.ids) ? body.ids : [];
+      await Promise.all(
+        ids.map((sid, i) => admin.from('songs').update({ replay_position: i }).eq('id', sid).eq('venue_id', vid)),
+      );
+      return NextResponse.json({ success: true });
+    }
     case 'saveSettings': {
       const current = await getConfig(vid);
       const next: VenueConfig = { ...current, ...(body.config as Partial<VenueConfig>) };

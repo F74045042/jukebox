@@ -45,7 +45,10 @@ export function useVenue(venueId: string) {
       .select('*')
       .eq('venue_id', venueId)
       .eq('status', 'played')
-      .order('played_at', { ascending: false })
+      .eq('hidden', false)
+      // 清單順序＝回放順序：已排序的依 replay_position，其餘新歌依播放先後（由舊到新）接在後面
+      .order('replay_position', { ascending: true, nullsFirst: false })
+      .order('played_at', { ascending: true })
       .limit(100);
     setHistory((data ?? []) as Song[]);
   }, [venueId]);

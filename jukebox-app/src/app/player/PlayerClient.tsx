@@ -63,9 +63,9 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
       setNow(null);
       return;
     }
-    const order = [...hist].reverse(); // 由舊到新依序回放
-    const idx = ((idleIdxRef.current % order.length) + order.length) % order.length;
-    const pick = order[idx];
+    // history 已是「回放順序」（清單由上到下），依序播、循環
+    const idx = ((idleIdxRef.current % hist.length) + hist.length) % hist.length;
+    const pick = hist[idx];
     currentRef.current = { id: pick.id, isHistory: true };
     loadVideo(pick.video_id);
     setNow({ title: pick.title, video_id: pick.video_id, table_label: pick.table_label, isHistory: true });
@@ -211,24 +211,105 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
           </div>
         )}
 
-        <h2 className="mb-3 mt-7 text-sm font-bold">🎞️ 歷史歌單</h2>
-        {history.length === 0 ? (
-          <p className="py-4 text-sm text-[var(--faint)]">還沒有播放紀錄</p>
-        ) : (
-          <div className="space-y-2">
-            {history.slice(0, 30).map((s) => (
-              <div key={s.id} className="card flex items-center gap-2 rounded-xl p-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={s.thumbnail || `https://i.ytimg.com/vi/${s.video_id}/default.jpg`} alt="" className="h-9 w-9 rounded object-cover" />
-                <span className="min-w-0 flex-1 truncate text-sm text-[var(--muted)]">{s.title}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <h2 className="mb-1 mt-7 text-sm font-bold">🎞️ 歷史歌單</h2>
+        <p className="mb-3 text-xs text-[var(--faint)]">拖曳排序＝無佇列時的回放順序；✕ 從回放清單移除</p>
+        <HistoryList
+          history={history}
+          onReorder={(ids) => admin('reorderHistory', { ids })}
+          onDelete={(id) => admin('hideHistory', { id })}
+        />
       </aside>
 
       {showSettings && <SettingsModal config={config} onClose={() => setShowSettings(false)} admin={admin} />}
     </main>
+  );
+}
+
+function HistoryList({
+  history,
+  onReorder,
+  onDelete,
+}: {
+  history: Song[];
+  onReorder: (ids: string[]) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [items, setItems] = useState<Song[]>(history);
+  const draggingRef = useRef(false);
+  const dragId = useRef<string | null>(null);
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    if (!draggingRef.current) setItems(history);
+  }, [history]);
+
+  function onMove(e: PointerEvent) {
+    const id = dragId.current;
+    if (!id) return;
+    const y = e.clientY;
+    setItems((prev) => {
+      const arr = [...prev];
+      const from = arr.findIndex((s) => s.id === id);
+      if (from < 0) return prev;
+      let to = arr.length - 1;
+      for (let i = 0; i < arr.length; i++) {
+        const el = rowRefs.current[arr[i].id];
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (y < r.top + r.height / 2) {
+          to = i;
+          break;
+        }
+      }
+      if (to === from) return prev;
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
+      return arr;
+    });
+  }
+  function onUp() {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    draggingRef.current = false;
+    dragId.current = null;
+    setItems((cur) => {
+      onReorder(cur.map((s) => s.id));
+      return cur;
+    });
+  }
+  function onPointerDown(e: React.PointerEvent, id: string) {
+    e.preventDefault();
+    draggingRef.current = true;
+    dragId.current = id;
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }
+  function del(id: string) {
+    setItems((prev) => prev.filter((s) => s.id !== id));
+    onDelete(id);
+  }
+
+  if (items.length === 0) return <p className="py-4 text-sm text-[var(--faint)]">還沒有播放紀錄</p>;
+  return (
+    <div className="space-y-2">
+      {items.map((s) => (
+        <div
+          key={s.id}
+          ref={(el) => {
+            rowRefs.current[s.id] = el;
+          }}
+          className="card flex items-center gap-2 rounded-xl p-2"
+        >
+          <button onPointerDown={(e) => onPointerDown(e, s.id)} title="拖曳排序" className="cursor-grab touch-none px-1 text-lg leading-none text-[var(--faint)]">
+            ⠿
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={s.thumbnail || `https://i.ytimg.com/vi/${s.video_id}/default.jpg`} alt="" className="h-9 w-9 rounded object-cover" />
+          <span className="min-w-0 flex-1 truncate text-sm text-[var(--muted)]">{s.title}</span>
+          <button onClick={() => del(s.id)} title="從回放清單移除" className="text-[var(--faint)] hover:text-[var(--danger)]">✕</button>
+        </div>
+      ))}
+    </div>
   );
 }
 

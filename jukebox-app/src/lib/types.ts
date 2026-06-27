@@ -11,6 +11,8 @@ export interface Song {
   position: number;
   created_at: string;
   played_at: string | null;
+  hidden?: boolean;
+  replay_position?: number | null;
 }
 
 export interface VenueConfig {
