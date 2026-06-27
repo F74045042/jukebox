@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getMyVenue } from '@/lib/server/data';
-import PlayerClient from './PlayerClient';
+import DashboardClient from './DashboardClient';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PlayerPage() {
+export default async function DashboardPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -13,5 +13,5 @@ export default async function PlayerPage() {
   if (!user) redirect('/login');
   const venue = await getMyVenue();
   if (!venue) redirect('/onboarding');
-  return <PlayerClient venueId={venue.id} email={user.email ?? ''} />;
+  return <DashboardClient venue={venue} email={user.email ?? ''} />;
 }

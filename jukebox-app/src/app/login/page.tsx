@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
@@ -21,7 +22,7 @@ export default function LoginPage() {
     if (error) {
       setErr('登入失敗：' + error.message);
     } else {
-      router.push('/player');
+      router.push('/dashboard');
       router.refresh();
     }
   }
@@ -49,6 +50,7 @@ export default function LoginPage() {
         <button type="submit" disabled={busy} className="w-full rounded-xl bg-orange-500 py-3 font-bold text-zinc-900 disabled:opacity-50">
           {busy ? '登入中…' : '登入'}
         </button>
+        <p className="text-center text-sm text-[var(--muted)]">還沒有店家帳號？<Link href="/signup" className="text-[#ffb088]">註冊開店</Link></p>
       </form>
     </main>
   );

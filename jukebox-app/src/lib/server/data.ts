@@ -56,6 +56,24 @@ export async function incrementQuota(venueId: string) {
   await admin.from('search_quota').upsert({ venue_id: venueId, day: today, count });
 }
 
+// ---- 取得目前登入者的店（Phase 2 多租戶；單一使用者一家店）----
+export async function getMyVenue(): Promise<{ id: string; name: string } | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: m } = await supabase
+    .from('venue_members')
+    .select('venue_id')
+    .eq('user_id', user.id)
+    .limit(1)
+    .maybeSingle();
+  if (!m) return null;
+  const { data: v } = await supabase.from('venues').select('id,name').eq('id', m.venue_id).maybeSingle();
+  return v ? { id: v.id as string, name: v.name as string } : { id: m.venue_id as string, name: '我的店' };
+}
+
 // ---- 驗證請求者是該店成員（player 管理動作用）----
 export async function requireMember(venueId: string): Promise<{ ok: true; userId: string } | { ok: false; status: number }> {
   const supabase = await createClient();
