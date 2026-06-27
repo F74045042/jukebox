@@ -117,9 +117,18 @@ create policy songs_member_write on public.songs for all
   using (public.is_member(venue_id)) with check (public.is_member(venue_id));
 -- table_cooldowns / search_quota：不開任何前端政策，只由後端 service role 存取。
 
--- ---------- 開啟 Realtime（客人/平板即時收到佇列與設定變動） ----------
-alter publication supabase_realtime add table public.songs;
-alter publication supabase_realtime add table public.venue_settings;
+-- ---------- 開啟 Realtime（客人/平板即時收到佇列與設定變動）；可重複執行 ----------
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables
+    where pubname='supabase_realtime' and schemaname='public' and tablename='songs') then
+    alter publication supabase_realtime add table public.songs;
+  end if;
+  if not exists (select 1 from pg_publication_tables
+    where pubname='supabase_realtime' and schemaname='public' and tablename='venue_settings') then
+    alter publication supabase_realtime add table public.venue_settings;
+  end if;
+end $$;
 
 -- ============================================================
 -- 一次性 seed（Phase 1 單店）：建立你的店 + 把你的登入帳號設為店主
@@ -129,8 +138,14 @@ alter publication supabase_realtime add table public.venue_settings;
 -- do $$
 -- declare v_user uuid; v_venue uuid;
 -- begin
---   select id into v_user from auth.users where email = '你的@email.com';
---   insert into public.venues(name) values ('我的店') returning id into v_venue;
---   insert into public.venue_members(venue_id, user_id, role) values (v_venue, v_user, 'owner');
+--   select id into v_user from auth.users where email = '你的@gmail.com';   -- 換成你建的登入帳號
+--   if v_user is null then
+--     raise exception '找不到該 email 的使用者，請先到 Authentication ▸ Users 建立帳號';
+--   end if;
+--   select venue_id into v_venue from public.venue_members where user_id = v_user limit 1;
+--   if v_venue is null then   -- 已建過就不重複建，可安全重跑
+--     insert into public.venues(name) values ('我的店') returning id into v_venue;
+--     insert into public.venue_members(venue_id, user_id, role) values (v_venue, v_user, 'owner');
+--   end if;
 --   raise notice '你的 venue_id = %', v_venue;   -- 記下這組 ID，customer/player 會用到
 -- end $$;
