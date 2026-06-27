@@ -14,3 +14,7 @@ appsscript.json
 node_modules/
 __pycache__/
 *.pyc
+
+# --- Generated QR codes (產生物，不進 repo) ---
+qrcodes/
+qrcodes-app/
