@@ -1,77 +1,91 @@
-# 餐廳點歌系統 — 部署說明
+# 點唱機 — 即時點歌系統（多租戶 SaaS）
 
-## 系統架構
-- **`apps_script.gs`**：後端，部署在 Google Apps Script，資料存在 Google Sheets
-- **`customer.html`**：客人手機點歌頁，掃桌上 QR Code 進入
-- **`player.html`**：平板播放頁，接藍芽喇叭播放音樂
+餐廳／店家用的線上點歌系統：客人掃桌上 QR Code 點歌，店家平板登入後自動依序播放。
+支援多店（每家店資料隔離）、即時同步、三種播放模式。
 
----
+- **正式站**：https://jukebox-sandy-ten.vercel.app
+- **原始碼**：本 repo 的 [`jukebox-app/`](jukebox-app/)（Next.js）
 
-## 步驟 1：建立後端
-
-1. 到 [Google Sheets](https://sheets.google.com) 開一個新的空白表格，取名「點歌系統」
-2. 上方選單 **擴充功能 > Apps Script**
-3. 把 `apps_script.gs` 的內容整段貼進去，蓋掉原本的 `myFunction`
-4. 申請 YouTube Data API 金鑰：
-   - 到 [Google Cloud Console](https://console.cloud.google.com/)
-   - 建立新專案 → 啟用「**YouTube Data API v3**」
-   - 憑證 > 建立憑證 > API 金鑰
-   - 把金鑰貼到 `apps_script.gs` 第 14 行的 `YOUTUBE_API_KEY`
-5. 點上方「部署 > 新增部署」
-   - 類型：**網頁應用程式**
-   - 執行身分：**我**
-   - 存取權限：**任何人**
-6. 部署後會拿到一個網址，結尾是 `.../exec`，**這個網址要貼到 customer.html 和 player.html 裡**
-
-> ⚠️ 之後如果改了程式碼，要記得「管理部署 > 編輯 > 部署」才會更新線上版本。
+> 舊版（Google Apps Script + GitHub Pages 靜態頁）已淘汰，相關檔案已移除。
 
 ---
 
-## 步驟 2：設定前端網址
+## 技術架構
 
-打開 `customer.html` 和 `player.html`，把這一行：
-```js
-const API_URL = 'PUT_YOUR_APPS_SCRIPT_URL_HERE';
+| 層 | 技術 |
+|---|---|
+| 前端 / App | **Next.js 16**（App Router, TypeScript, Tailwind），部署於 **Vercel** |
+| 資料庫 / 登入 / 即時 | **Supabase**（Postgres + Auth + Realtime + Row Level Security） |
+| 播放 | YouTube IFrame Player API |
+| KTV 歌詞 | LRCLIB（免費、免金鑰；英文覆蓋佳，華語有限） |
+
+**設計重點**：讀取與即時同步走 anon key + RLS；有商業邏輯的寫入（點歌、插播、跳過、管理）一律經 Next.js Route Handlers 用 service-role 金鑰在後端驗證，前端不直接寫入。即時推播取代輪詢，點歌幾乎即時出現。
+
+---
+
+## 主要頁面
+
+| 路徑 | 說明 | 登入 |
+|---|---|---|
+| `/` | 首頁（註冊／登入入口） | 否 |
+| `/signup` → `/onboarding` | 店家註冊、建立店家 | 是 |
+| `/dashboard` | 店家後台：播放器/客人連結、各桌 QR（可下載/列印） | 是 |
+| `/player` | 平板播放器（自動對應登入者的店） | 是 |
+| `/v/[venueId]?table=桌號` | 客人點歌頁（QR 連到這裡） | 否 |
+| `/api/*` | search / request-song / paid-bump / vote-skip / lyrics / venue / admin | — |
+
+**播放器三種模式**（播放器上方切換，存於店家設定）：
+- 🎵 **播歌**：只顯示旋轉黑膠，當背景音樂
+- 📺 **MV**：播影片、裁掉 YouTube 介面
+- 🎤 **KTV**：疊上同步歌詞跟唱（LRCLIB；找不到時提示改用 MV）
+
+---
+
+## 專案結構
+
 ```
-換成步驟 1 拿到的 `.../exec` 網址。
+jukebox-app/              Next.js 應用
+  src/app/                頁面與 API 路由
+  src/components/         共用元件（CustomerView…）
+  src/lib/                supabase client、useVenue、i18n、lyrics、types
+  supabase/
+    schema.sql            主 schema（資料表 + RLS + Realtime + seed）
+    02-skip-votes.sql     跳過投票
+    03-history-curation.sql  歷史歌單拖曳排序/刪除
+  SETUP.md                詳細設定步驟
+make_qrcodes_app.py       產生各桌 QR（指向 /v/[venueId]?table=）
+```
 
 ---
 
-## 步驟 3：放到網路上
+## 初次設定
 
-兩個 HTML 檔案需要放到一個網址上才能用手機/平板開啟，最簡單的方式：
+詳見 [`jukebox-app/SETUP.md`](jukebox-app/SETUP.md)，重點：
 
-- **GitHub Pages**（免費）：建一個 repo，把兩個 html 丟進去，設定 Pages 即可
-- **Netlify / Vercel**（免費）：把資料夾拖進去就會自動產生網址
-- 或你原有的網站空間，直接把檔案上傳
+1. **Supabase**：建專案 → SQL Editor 依序執行 `supabase/schema.sql`、`02-skip-votes.sql`、`03-history-curation.sql`。
+2. **登入帳號**：Authentication ▸ Users 建立店家 email/密碼；解開 `schema.sql` 底部 seed 區塊建立第一家店、取得 `venue_id`。
+3. **環境變數**（`jukebox-app/.env.local`，正式環境設在 Vercel）：
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=
+   SUPABASE_SERVICE_ROLE_KEY=      # 祕密，勿外流
+   YOUTUBE_API_KEY=                # 祕密，勿外流
+   NEXT_PUBLIC_DEFAULT_VENUE_ID=
+   ```
+4. **Vercel**：Import 此 repo，**Root Directory 設為 `jukebox-app`**，填入上述環境變數，Deploy。之後 push 到 `main` 自動部署。
 
-假設部署後網址是 `https://你的網域/customer.html`，那麼：
-- 每桌的 QR Code 連到：`https://你的網域/customer.html?table=A1`（A1 換成各桌桌號）
-- 平板開啟：`https://你的網域/player.html`
+## 本機開發
 
----
-
-## 步驟 4：製作每桌的 QR Code
-
-用任何免費 QR Code 產生器（例如 https://www.qr-code-generator.com/）
-把每桌專屬的網址（含 `?table=桌號`）轉成 QR Code，印出來貼在桌上即可。
-
----
-
-## 步驟 5：平板設定
-
-1. 平板瀏覽器開啟 `player.html`
-2. 點一下「▶ 開始播放」解鎖音訊（瀏覽器規定要有一次手動點擊才能播放聲音）
-3. 接下來會自動播放佇列、播完自動接下一首
-4. 平板透過藍芽連接喇叭，跟你現在的用法一樣
+```bash
+cd jukebox-app
+npm install
+npm run dev        # http://localhost:3000
+```
 
 ---
 
-## 重要限制與調整空間
+## 已知限制
 
-- **YouTube 搜尋配額**：免費額度約每天 100 次搜尋，用完後客人可改用「貼上 YouTube 連結」（不耗配額）。
-  - 如果常常用完，可以到 Google Cloud Console 開通計費，超額部分費用很低（每 1000 次約數十元台幣等級），開通後配額會大幅提升。
-  - 開通計費後，把 `apps_script.gs` 裡的 `DAILY_SEARCH_LIMIT` 調大或移除限制即可。
-- **每桌點歌數量**：目前設定「同時最多 3 首待播」，可在 `apps_script.gs` 的 `MAX_WAITING_PER_TABLE` 調整。
-- **不雅歌曲**：目前沒有自動過濾機制，建議平板螢幕讓店員能隨時看到，搭配「跳過」按鈕手動處理。
-- **資料保存**：所有點歌記錄都存在 Google Sheet 的「Queue」分頁裡，可以直接打開查看歷史紀錄（已播放的歌會標記為 `played`，不會被刪除，除非按了清空）。
+- **YouTube 搜尋配額**：每把金鑰每天約 100 次搜尋（搜尋 1 次=100 單位）。多店共用會不夠，未來規劃讓每店自帶金鑰；客人改用「貼連結」不耗配額。
+- **華語 KTV 歌詞**：LRCLIB 對中文歌覆蓋有限，找不到會提示改用 MV 模式。要全覆蓋需自架歌詞代理或改用授權 API。
+- **音樂授權**：在營業場所以 YouTube 播放／顯示歌詞涉公開演出與版權，商用前請自行確認授權合規。
