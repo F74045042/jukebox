@@ -28,7 +28,8 @@ export async function POST(req: Request) {
     if (!res.ok) return NextResponse.json({ success: false, error: 'NOT_FOUND' });
     const arr = (await res.json()) as LrclibHit[];
     if (!Array.isArray(arr) || arr.length === 0) return NextResponse.json({ success: false, error: 'NOT_FOUND' });
-    const hit = arr.find((x) => x.syncedLyrics) || arr[0];
+    // LRCLIB 已依相關度排序：只在前幾名裡挑「有同步歌詞」的，避免抓到不相關卻剛好有歌詞的歌
+    const hit = arr.slice(0, 4).find((x) => x.syncedLyrics) || arr[0];
     return NextResponse.json({
       success: true,
       synced: hit.syncedLyrics || null,

@@ -65,6 +65,7 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [lyricStatus, setLyricStatus] = useState<'idle' | 'loading' | 'synced' | 'plain' | 'none'>('idle');
   const [activeLine, setActiveLine] = useState(-1);
+  const [lyricMatch, setLyricMatch] = useState('');
   const [offset, setOffset] = useState(0); // 秒；正值=歌詞提早顯示
   const offsetRef = useRef(0);
   useEffect(() => {
@@ -206,6 +207,7 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
       .then((x) => x.json())
       .then((r) => {
         if (cancelled) return;
+        setLyricMatch(r.success && r.track ? `${r.track}${r.artist ? ' - ' + r.artist : ''}` : '');
         if (r.success && r.synced) {
           setLyrics(parseLrc(r.synced));
           setLyricStatus('synced');
@@ -339,6 +341,11 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
                   <p className="pt-2 text-xs text-[var(--faint)]">（此歌只有非同步歌詞，無法逐句高亮）</p>
                 </div>
               )}
+            </div>
+          )}
+          {mode === 'ktv' && lyricMatch && (lyricStatus === 'synced' || lyricStatus === 'plain') && (
+            <div className="absolute left-2 top-2 z-30 max-w-[60%] truncate rounded bg-black/50 px-2 py-1 text-xs text-[var(--faint)]">
+              🎵 {lyricMatch}
             </div>
           )}
           {mode === 'ktv' && lyricStatus === 'synced' && (
