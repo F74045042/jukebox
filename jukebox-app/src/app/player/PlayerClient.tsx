@@ -28,12 +28,15 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
   const [started, setStarted] = useState(false);
   const [now, setNow] = useState<{ title: string; video_id: string; table_label: string; isHistory: boolean } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [mode, setMode] = useState<'music' | 'mv' | 'ktv'>('music');
 
   const playerRef = useRef<YTPlayer | null>(null);
-  const loadedRef = useRef<string>('');
+  const loadedKeyRef = useRef<string>(''); // songId + 模式(原曲/伴唱)，避免重複載入
   const currentRef = useRef<{ id: string; isHistory: boolean } | null>(null);
   const historyRef = useRef<Song[]>([]);
   const configRef = useRef<VenueConfig>(DEFAULT_CONFIG);
+  const modeRef = useRef<'music' | 'mv' | 'ktv'>('music');
+  const karaokeCache = useRef<Record<string, string>>({});
   const idleIdxRef = useRef(0);
 
   useEffect(() => {
@@ -42,6 +45,13 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
   useEffect(() => {
     configRef.current = config;
   }, [config]);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+  // 跟隨後端設定的預設/同步模式
+  useEffect(() => {
+    if (config.playerMode) setMode(config.playerMode);
+  }, [config.playerMode]);
 
   async function admin(action: string, extra: Record<string, unknown> = {}) {
     return fetch('/api/admin', {
@@ -51,26 +61,52 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
     }).then((r) => r.json());
   }
 
-  const loadVideo = useCallback((id: string) => {
-    if (loadedRef.current === id) return;
-    loadedRef.current = id;
-    playerRef.current?.loadVideoById(id);
+  // KTV 模式時把原曲換成伴唱版（查快取→YouTube 搜伴唱版），其餘模式播原曲
+  const resolveVideoId = useCallback(async (song: { video_id: string; title: string }) => {
+    if (modeRef.current !== 'ktv') return song.video_id;
+    if (karaokeCache.current[song.video_id]) return karaokeCache.current[song.video_id];
+    try {
+      const r = await fetch('/api/karaoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId: song.video_id, title: song.title }),
+      }).then((x) => x.json());
+      if (r.success && r.videoId) {
+        karaokeCache.current[song.video_id] = r.videoId;
+        return r.videoId as string;
+      }
+    } catch {
+      // 找不到伴唱版就退回原曲
+    }
+    return song.video_id;
   }, []);
+
+  const loadFor = useCallback(
+    async (song: { id: string; video_id: string; title: string; table_label: string }, isHistory: boolean) => {
+      currentRef.current = { id: song.id, isHistory };
+      setNow({ title: song.title, video_id: song.video_id, table_label: song.table_label, isHistory });
+      const key = song.id + (modeRef.current === 'ktv' ? ':k' : ':o');
+      if (loadedKeyRef.current === key) return; // 同一首同一類來源，免重載
+      loadedKeyRef.current = key;
+      const vid = await resolveVideoId(song);
+      if (currentRef.current?.id !== song.id) return; // await 期間已換歌，放棄
+      playerRef.current?.loadVideoById(vid);
+    },
+    [resolveVideoId],
+  );
 
   const playIdle = useCallback(() => {
     const hist = historyRef.current;
     if (!configRef.current.playHistoryWhenIdle || hist.length === 0) {
       currentRef.current = null;
       setNow(null);
+      loadedKeyRef.current = '';
       return;
     }
     // history 已是「回放順序」（清單由上到下），依序播、循環
     const idx = ((idleIdxRef.current % hist.length) + hist.length) % hist.length;
-    const pick = hist[idx];
-    currentRef.current = { id: pick.id, isHistory: true };
-    loadVideo(pick.video_id);
-    setNow({ title: pick.title, video_id: pick.video_id, table_label: pick.table_label, isHistory: true });
-  }, [loadVideo]);
+    loadFor(hist[idx], true);
+  }, [loadFor]);
 
   const handleEnded = useCallback(() => {
     const cur = currentRef.current;
@@ -89,7 +125,7 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
       playerRef.current = new window.YT.Player('yt', {
         height: '100%',
         width: '100%',
-        playerVars: { autoplay: 1, controls: 1, rel: 0, playsinline: 1 },
+        playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1, modestbranding: 1, iv_load_policy: 3 },
         events: {
           onStateChange: (e: { data: number }) => {
             if (e.data === 0) handleEnded();
@@ -109,17 +145,14 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
 
   useEffect(() => {
     if (!started) return;
+    modeRef.current = mode;
     const playing = queue.find((s) => s.status === 'playing');
     const waiting = queue.filter((s) => s.status === 'waiting');
     if (playing) {
-      currentRef.current = { id: playing.id, isHistory: false };
-      loadVideo(playing.video_id);
-      setNow({ title: playing.title, video_id: playing.video_id, table_label: playing.table_label, isHistory: false });
+      loadFor(playing, false);
     } else if (waiting.length > 0) {
       const next = waiting[0];
-      currentRef.current = { id: next.id, isHistory: false };
-      loadVideo(next.video_id);
-      setNow({ title: next.title, video_id: next.video_id, table_label: next.table_label, isHistory: false });
+      loadFor(next, false);
       admin('markPlaying', { id: next.id });
     } else if (config.playHistoryWhenIdle && history.length > 0) {
       if (!currentRef.current?.isHistory) {
@@ -129,9 +162,15 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
     } else {
       currentRef.current = null;
       setNow(null);
+      loadedKeyRef.current = '';
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queue, history, config, started]);
+  }, [queue, history, config, started, mode]);
+
+  function setModeAndSave(m: 'music' | 'mv' | 'ktv') {
+    setMode(m);
+    admin('saveSettings', { config: { playerMode: m } });
+  }
 
   function unlock() {
     setStarted(true);
@@ -162,8 +201,37 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
           <span className="font-bold tracking-wide">點唱機</span>
         </div>
 
-        <div className="aspect-video w-full max-w-2xl overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-black shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]">
-          <div id="yt" className="h-full w-full" />
+        {/* 模式切換 */}
+        <div className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 gap-1">
+          {([['music', '🎵 播歌'], ['mv', '📺 MV'], ['ktv', '🎤 KTV']] as const).map(([m, label]) => (
+            <button
+              key={m}
+              onClick={() => setModeAndSave(m)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold ${mode === m ? 'seg-on border' : 'card text-[var(--muted)]'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative aspect-video w-full max-w-3xl overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-black shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]">
+          {/* MV 模式裁掉 YouTube 上下列；播歌/KTV 用滿版 */}
+          <div className={mode === 'mv' ? 'absolute -inset-[9%]' : 'absolute inset-0'}>
+            <div id="yt" className="h-full w-full" />
+          </div>
+          {/* MV / KTV：擋住點擊，客人不能暫停或點進 YouTube */}
+          {(mode === 'mv' || mode === 'ktv') && <div className="absolute inset-0 z-10" />}
+          {/* 播歌模式：不透明黑膠蓋住影片，只剩聲音 */}
+          {mode === 'music' && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--bg)]">
+              <div className="vinyl h-44 w-44 sm:h-60 sm:w-60">
+                {now && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="vinyl-label" src={`https://i.ytimg.com/vi/${now.video_id}/hqdefault.jpg`} alt="" />
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-5 text-center">

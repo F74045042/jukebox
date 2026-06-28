@@ -29,6 +29,7 @@ export interface VenueConfig {
   skipVotesNeeded: number;
   paidBumpEnabled: boolean;
   bumpPrice: number;
+  playerMode: 'music' | 'mv' | 'ktv';
 }
 
 export const DEFAULT_CONFIG: VenueConfig = {
@@ -45,6 +46,7 @@ export const DEFAULT_CONFIG: VenueConfig = {
   skipVotesNeeded: 0,
   paidBumpEnabled: false,
   bumpPrice: 0,
+  playerMode: 'music',
 };
 
 export interface SearchResult {
