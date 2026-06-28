@@ -11,6 +11,8 @@ interface YTPlayer {
   loadVideoById: (id: string) => void;
   playVideo: () => void;
   stopVideo: () => void;
+  setVolume: (v: number) => void;
+  unMute: () => void;
 }
 interface YTNamespace {
   Player: new (el: string | HTMLElement, opts: unknown) => YTPlayer;
@@ -127,6 +129,10 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
         width: '100%',
         playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1, modestbranding: 1, iv_load_policy: 3 },
         events: {
+          onReady: () => {
+            playerRef.current?.unMute();
+            playerRef.current?.setVolume(100);
+          },
           onStateChange: (e: { data: number }) => {
             if (e.data === 0) handleEnded();
           },
@@ -174,6 +180,8 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
 
   function unlock() {
     setStarted(true);
+    playerRef.current?.unMute();
+    playerRef.current?.setVolume(100);
     playerRef.current?.playVideo();
   }
 
