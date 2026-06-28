@@ -13,6 +13,27 @@ interface YTPlayer {
   stopVideo: () => void;
   setVolume: (v: number) => void;
   unMute: () => void;
+  getCurrentTime: () => number;
+}
+
+interface LyricLine {
+  t: number;
+  text: string;
+}
+function parseLrc(lrc: string): LyricLine[] {
+  const out: LyricLine[] = [];
+  for (const raw of lrc.split('\n')) {
+    const text = raw.replace(/\[[0-9:.]+\]/g, '').trim();
+    const stamps = raw.match(/\[(\d+):(\d+)(?:\.(\d+))?\]/g);
+    if (!stamps) continue;
+    for (const s of stamps) {
+      const m = s.match(/\[(\d+):(\d+)(?:\.(\d+))?\]/);
+      if (!m) continue;
+      const t = parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + (m[3] ? parseInt(m[3].padEnd(3, '0').slice(0, 3), 10) / 1000 : 0);
+      out.push({ t, text });
+    }
+  }
+  return out.sort((a, b) => a.t - b.t);
 }
 interface YTNamespace {
   Player: new (el: string | HTMLElement, opts: unknown) => YTPlayer;
@@ -38,8 +59,17 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
   const historyRef = useRef<Song[]>([]);
   const configRef = useRef<VenueConfig>(DEFAULT_CONFIG);
   const modeRef = useRef<'music' | 'mv' | 'ktv'>('music');
-  const karaokeCache = useRef<Record<string, string>>({});
   const idleIdxRef = useRef(0);
+
+  // KTV 歌詞
+  const [lyrics, setLyrics] = useState<LyricLine[]>([]);
+  const [lyricStatus, setLyricStatus] = useState<'idle' | 'loading' | 'synced' | 'plain' | 'none'>('idle');
+  const [activeLine, setActiveLine] = useState(-1);
+  const [offset, setOffset] = useState(0); // 秒；正值=歌詞提早顯示
+  const offsetRef = useRef(0);
+  useEffect(() => {
+    offsetRef.current = offset;
+  }, [offset]);
 
   useEffect(() => {
     historyRef.current = history;
@@ -63,38 +93,15 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
     }).then((r) => r.json());
   }
 
-  // KTV 模式時把原曲換成伴唱版（查快取→YouTube 搜伴唱版），其餘模式播原曲
-  const resolveVideoId = useCallback(async (song: { video_id: string; title: string }) => {
-    if (modeRef.current !== 'ktv') return song.video_id;
-    if (karaokeCache.current[song.video_id]) return karaokeCache.current[song.video_id];
-    try {
-      const r = await fetch('/api/karaoke', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoId: song.video_id, title: song.title }),
-      }).then((x) => x.json());
-      if (r.success && r.videoId) {
-        karaokeCache.current[song.video_id] = r.videoId;
-        return r.videoId as string;
-      }
-    } catch {
-      // 找不到伴唱版就退回原曲
-    }
-    return song.video_id;
-  }, []);
-
   const loadFor = useCallback(
-    async (song: { id: string; video_id: string; title: string; table_label: string }, isHistory: boolean) => {
+    (song: { id: string; video_id: string; title: string; table_label: string }, isHistory: boolean) => {
       currentRef.current = { id: song.id, isHistory };
       setNow({ title: song.title, video_id: song.video_id, table_label: song.table_label, isHistory });
-      const key = song.id + (modeRef.current === 'ktv' ? ':k' : ':o');
-      if (loadedKeyRef.current === key) return; // 同一首同一類來源，免重載
-      loadedKeyRef.current = key;
-      const vid = await resolveVideoId(song);
-      if (currentRef.current?.id !== song.id) return; // await 期間已換歌，放棄
-      playerRef.current?.loadVideoById(vid);
+      if (loadedKeyRef.current === song.id) return;
+      loadedKeyRef.current = song.id;
+      playerRef.current?.loadVideoById(song.video_id);
     },
-    [resolveVideoId],
+    [],
   );
 
   const playIdle = useCallback(() => {
@@ -178,6 +185,69 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
     admin('saveSettings', { config: { playerMode: m } });
   }
 
+  // KTV：換歌時抓歌詞
+  useEffect(() => {
+    if (mode !== 'ktv' || !now) {
+      setLyrics([]);
+      setLyricStatus('idle');
+      setActiveLine(-1);
+      return;
+    }
+    let cancelled = false;
+    setLyricStatus('loading');
+    setLyrics([]);
+    setActiveLine(-1);
+    setOffset(0);
+    fetch('/api/lyrics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: now.title }),
+    })
+      .then((x) => x.json())
+      .then((r) => {
+        if (cancelled) return;
+        if (r.success && r.synced) {
+          setLyrics(parseLrc(r.synced));
+          setLyricStatus('synced');
+        } else if (r.success && r.plain) {
+          setLyrics(
+            String(r.plain)
+              .split('\n')
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .map((t) => ({ t: -1, text: t })),
+          );
+          setLyricStatus('plain');
+        } else {
+          setLyricStatus('none');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLyricStatus('none');
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, now?.video_id]);
+
+  // KTV：依播放進度高亮目前歌詞行
+  useEffect(() => {
+    if (mode !== 'ktv' || lyricStatus !== 'synced' || lyrics.length === 0) return;
+    const id = setInterval(() => {
+      const p = playerRef.current;
+      if (!p) return;
+      const tt = p.getCurrentTime() + offsetRef.current;
+      let idx = -1;
+      for (let i = 0; i < lyrics.length; i++) {
+        if (lyrics[i].t <= tt) idx = i;
+        else break;
+      }
+      setActiveLine(idx);
+    }, 300);
+    return () => clearInterval(id);
+  }, [mode, lyricStatus, lyrics]);
+
   function unlock() {
     setStarted(true);
     playerRef.current?.unMute();
@@ -238,6 +308,44 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
                   <img className="vinyl-label" src={`https://i.ytimg.com/vi/${now.video_id}/hqdefault.jpg`} alt="" />
                 )}
               </div>
+            </div>
+          )}
+
+          {/* KTV：歌詞疊在（變暗的）影片上 */}
+          {mode === 'ktv' && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/75 px-6 text-center">
+              {lyricStatus === 'loading' && <p className="text-[var(--muted)]">載入歌詞中…</p>}
+              {lyricStatus === 'none' && (
+                <p className="text-[var(--muted)]">找不到這首的歌詞 🎤<br />可改用 📺 MV 模式</p>
+              )}
+              {lyricStatus === 'synced' && (
+                <div className="w-full max-w-2xl space-y-3">
+                  {[-1, 0, 1, 2].map((d) => {
+                    const line = lyrics[activeLine + d];
+                    const isCur = d === 0;
+                    return (
+                      <p key={d} className={isCur ? 'text-2xl font-bold text-[#ffcf9e] sm:text-3xl' : 'text-base text-[var(--muted)] sm:text-lg'}>
+                        {line ? line.text || '♪' : ''}
+                      </p>
+                    );
+                  })}
+                </div>
+              )}
+              {lyricStatus === 'plain' && (
+                <div className="max-h-full max-w-2xl space-y-1 overflow-hidden text-base text-[var(--text)]">
+                  {lyrics.slice(0, 10).map((l, i) => (
+                    <p key={i}>{l.text}</p>
+                  ))}
+                  <p className="pt-2 text-xs text-[var(--faint)]">（此歌只有非同步歌詞，無法逐句高亮）</p>
+                </div>
+              )}
+            </div>
+          )}
+          {mode === 'ktv' && lyricStatus === 'synced' && (
+            <div className="absolute bottom-2 right-2 z-30 flex items-center gap-1 text-xs">
+              <button onClick={() => setOffset((o) => o - 0.5)} className="card rounded px-2 py-1">歌詞慢</button>
+              <span className="mono w-12 text-center text-[var(--faint)]">{offset > 0 ? '+' : ''}{offset.toFixed(1)}s</span>
+              <button onClick={() => setOffset((o) => o + 0.5)} className="card rounded px-2 py-1">歌詞快</button>
             </div>
           )}
         </div>
