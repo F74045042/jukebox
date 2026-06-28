@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useVenue } from '@/lib/useVenue';
 import { createClient } from '@/lib/supabase/client';
@@ -151,6 +152,7 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
       <section className="relative flex flex-1 flex-col items-center justify-center p-6">
         <div className="absolute right-4 top-4 z-10 flex items-center gap-2 text-xs text-[var(--muted)]">
           <span className="hidden sm:inline">{email}</span>
+          <Link href="/dashboard" className="card rounded-lg px-3 py-1.5">← 後台</Link>
           <button onClick={() => setShowSettings(true)} className="card rounded-lg px-3 py-1.5">⚙️ 設定</button>
           <button onClick={logout} className="card rounded-lg px-3 py-1.5">登出</button>
         </div>
