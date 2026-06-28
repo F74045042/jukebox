@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+// 把這個 function 部署到亞洲區（網易雲會擋美國機房 IP）。Hobby 方案可能會忽略此設定。
+export const preferredRegion = ['hkg1', 'sin1', 'icn1'];
+
 // 從歌名清掉雜訊（【】()（）、Official/MV/feat… 等），提高命中率
 function cleanTitle(title: string): string {
   return title
@@ -65,6 +68,7 @@ async function tryNetease(q: string): Promise<LyricResult | null> {
   try {
     const sres = await fetch(`https://music.163.com/api/search/get?s=${encodeURIComponent(q)}&type=1&limit=5`, {
       headers: { Referer: 'https://music.163.com', 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(4000),
     });
     if (!sres.ok) return null;
     const sdata = (await sres.json()) as { result?: { songs?: NeteaseSong[] } };
@@ -81,6 +85,7 @@ async function tryNetease(q: string): Promise<LyricResult | null> {
 
     const lres = await fetch(`https://music.163.com/api/song/lyric?id=${best.s.id}&lv=1&kv=1&tv=-1`, {
       headers: { Referer: 'https://music.163.com', 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(4000),
     });
     if (!lres.ok) return null;
     const ldata = (await lres.json()) as { lrc?: { lyric?: string } };
