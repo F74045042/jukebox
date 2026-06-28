@@ -49,7 +49,7 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
   const router = useRouter();
   const { queue, history, config } = useVenue(venueId);
   const [started, setStarted] = useState(false);
-  const [now, setNow] = useState<{ title: string; video_id: string; table_label: string; isHistory: boolean } | null>(null);
+  const [now, setNow] = useState<{ id: string; title: string; video_id: string; table_label: string; isHistory: boolean } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [mode, setMode] = useState<'music' | 'mv' | 'ktv'>('music');
 
@@ -96,7 +96,7 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
   const loadFor = useCallback(
     (song: { id: string; video_id: string; title: string; table_label: string }, isHistory: boolean) => {
       currentRef.current = { id: song.id, isHistory };
-      setNow({ title: song.title, video_id: song.video_id, table_label: song.table_label, isHistory });
+      setNow({ id: song.id, title: song.title, video_id: song.video_id, table_label: song.table_label, isHistory });
       if (loadedKeyRef.current === song.id) return;
       loadedKeyRef.current = song.id;
       playerRef.current?.loadVideoById(song.video_id);
@@ -361,9 +361,9 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
           )}
         </div>
 
-        {now && !now.isHistory && currentRef.current && (
+        {now && !now.isHistory && (
           <div className="mt-4 flex gap-2">
-            <button onClick={() => admin('skipSong', { id: currentRef.current!.id })} className="card rounded-xl px-5 py-2 text-sm font-bold">跳過</button>
+            <button onClick={() => admin('skipSong', { id: now.id })} className="card rounded-xl px-5 py-2 text-sm font-bold">跳過</button>
             <button onClick={() => admin('clearQueue')} className="card rounded-xl px-5 py-2 text-sm font-bold">清空佇列</button>
           </div>
         )}
