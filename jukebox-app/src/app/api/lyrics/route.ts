@@ -28,8 +28,14 @@ export async function POST(req: Request) {
     if (!res.ok) return NextResponse.json({ success: false, error: 'NOT_FOUND' });
     const arr = (await res.json()) as LrclibHit[];
     if (!Array.isArray(arr) || arr.length === 0) return NextResponse.json({ success: false, error: 'NOT_FOUND' });
-    // LRCLIB 已依相關度排序：只在前幾名裡挑「有同步歌詞」的，避免抓到不相關卻剛好有歌詞的歌
-    const hit = arr.slice(0, 4).find((x) => x.syncedLyrics) || arr[0];
+    // 依「歌名/歌手與查詢字詞的吻合度」排序；有同步歌詞加分但不壓過相關度，避免抓到不相關卻剛好有歌詞的歌
+    const qWords = q.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
+    const score = (h: LrclibHit) => {
+      const hay = `${h.artistName || ''} ${h.trackName || ''}`.toLowerCase();
+      const matched = qWords.reduce((n, w) => n + (hay.includes(w) ? 1 : 0), 0);
+      return matched + (h.syncedLyrics ? 0.5 : 0);
+    };
+    const hit = [...arr].sort((a, b) => score(b) - score(a))[0];
     return NextResponse.json({
       success: true,
       synced: hit.syncedLyrics || null,
