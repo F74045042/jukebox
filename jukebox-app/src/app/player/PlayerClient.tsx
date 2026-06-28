@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useVenue } from '@/lib/useVenue';
 import { createClient } from '@/lib/supabase/client';
 import { DEFAULT_CONFIG, type Song, type VenueConfig } from '@/lib/types';
+import { parseLrc, type LyricLine } from '@/lib/lyrics';
 
 interface YTPlayer {
   loadVideoById: (id: string) => void;
@@ -16,25 +17,6 @@ interface YTPlayer {
   getCurrentTime: () => number;
 }
 
-interface LyricLine {
-  t: number;
-  text: string;
-}
-function parseLrc(lrc: string): LyricLine[] {
-  const out: LyricLine[] = [];
-  for (const raw of lrc.split('\n')) {
-    const text = raw.replace(/\[[0-9:.]+\]/g, '').trim();
-    const stamps = raw.match(/\[(\d+):(\d+)(?:\.(\d+))?\]/g);
-    if (!stamps) continue;
-    for (const s of stamps) {
-      const m = s.match(/\[(\d+):(\d+)(?:\.(\d+))?\]/);
-      if (!m) continue;
-      const t = parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + (m[3] ? parseInt(m[3].padEnd(3, '0').slice(0, 3), 10) / 1000 : 0);
-      out.push({ t, text });
-    }
-  }
-  return out.sort((a, b) => a.t - b.t);
-}
 interface YTNamespace {
   Player: new (el: string | HTMLElement, opts: unknown) => YTPlayer;
 }
@@ -58,7 +40,6 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
   const currentRef = useRef<{ id: string; isHistory: boolean } | null>(null);
   const historyRef = useRef<Song[]>([]);
   const configRef = useRef<VenueConfig>(DEFAULT_CONFIG);
-  const modeRef = useRef<'music' | 'mv' | 'ktv'>('music');
   const idleIdxRef = useRef(0);
 
   // KTV 歌詞
@@ -67,10 +48,6 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
   const [activeLine, setActiveLine] = useState(-1);
   const [lyricMatch, setLyricMatch] = useState('');
   const [offset, setOffset] = useState(0); // 秒；正值=歌詞提早顯示
-  const offsetRef = useRef(0);
-  useEffect(() => {
-    offsetRef.current = offset;
-  }, [offset]);
 
   useEffect(() => {
     historyRef.current = history;
@@ -78,9 +55,6 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
   useEffect(() => {
     configRef.current = config;
   }, [config]);
-  useEffect(() => {
-    modeRef.current = mode;
-  }, [mode]);
   // 跟隨後端設定的預設/同步模式
   useEffect(() => {
     if (config.playerMode) setMode(config.playerMode);
@@ -159,7 +133,6 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
 
   useEffect(() => {
     if (!started) return;
-    modeRef.current = mode;
     const playing = queue.find((s) => s.status === 'playing');
     const waiting = queue.filter((s) => s.status === 'waiting');
     if (playing) {
@@ -239,7 +212,7 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
     const id = setInterval(() => {
       const p = playerRef.current;
       if (!p) return;
-      const tt = p.getCurrentTime() + offsetRef.current;
+      const tt = p.getCurrentTime() + offset;
       let idx = -1;
       for (let i = 0; i < lyrics.length; i++) {
         if (lyrics[i].t <= tt) idx = i;
@@ -248,7 +221,7 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
       setActiveLine(idx);
     }, 300);
     return () => clearInterval(id);
-  }, [mode, lyricStatus, lyrics]);
+  }, [mode, lyricStatus, lyrics, offset]);
 
   function unlock() {
     setStarted(true);
