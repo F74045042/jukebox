@@ -30,6 +30,7 @@ export interface VenueConfig {
   paidBumpEnabled: boolean;
   bumpPrice: number;
   playerMode: 'music' | 'mv' | 'ktv';
+  theme: 'retro' | 'dining' | 'minimal' | 'party';
 }
 
 export const DEFAULT_CONFIG: VenueConfig = {
@@ -47,6 +48,7 @@ export const DEFAULT_CONFIG: VenueConfig = {
   paidBumpEnabled: false,
   bumpPrice: 0,
   playerMode: 'music',
+  theme: 'retro',
 };
 
 export interface SearchResult {

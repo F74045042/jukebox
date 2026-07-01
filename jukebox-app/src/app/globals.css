@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Monoton&family=Space+Grotesk:wght@500;600;700&family=Cormorant+Garamond:wght@600&family=Baloo+2:wght@700;800&display=swap');
 
 :root {
   --bg: #0e0b09;
@@ -126,3 +127,57 @@ body {
     animation: none;
   }
 }
+
+/* ===== 客人頁「店家氛圍」主題（4 種，由 data-theme 切換）===== */
+[data-theme]{ min-height:100vh; color:var(--text); background:var(--phone-bg); font-family:var(--body-font,'Noto Sans TC',sans-serif); }
+
+[data-theme="retro"]{
+  --phone-bg:radial-gradient(60% 40% at 15% 8%,rgba(255,46,154,.5),transparent 60%),radial-gradient(55% 42% at 88% 16%,rgba(35,227,255,.4),transparent 60%),radial-gradient(75% 55% at 72% 92%,rgba(150,40,255,.5),transparent 64%),linear-gradient(180deg,#1a0e26,#100719);
+  --text:#ffe9fb; --muted:#cda6da; --faint:#9078a4;
+  --accent:#ff2e9a; --accent-2:#23e3ff; --accent-soft:rgba(255,46,154,.18);
+  --on-accent:#1a0316; --btn-bg:linear-gradient(135deg,#ff2e9a,#ff7ac4);
+  --glow:0 0 26px rgba(255,46,154,.5); --text-glow:0 0 14px rgba(255,46,154,.6),0 0 34px rgba(35,227,255,.3);
+  --border:rgba(255,90,200,.34); --radius:14px; --radius-lg:18px;
+  --glass-grad:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.04));
+  --glass-border:rgba(255,255,255,.22); --glass-hi:rgba(255,255,255,.5); --glass-shadow:0 12px 34px -14px rgba(0,0,0,.65);
+  --logo-font:'Monoton',cursive; --head-font:'Noto Sans TC',sans-serif; --body-font:'Noto Sans TC',sans-serif;
+}
+[data-theme="dining"]{
+  --phone-bg:radial-gradient(60% 42% at 18% 6%,rgba(240,150,60,.5),transparent 60%),radial-gradient(55% 44% at 86% 18%,rgba(220,80,40,.42),transparent 62%),radial-gradient(75% 58% at 62% 95%,rgba(180,90,30,.5),transparent 64%),linear-gradient(180deg,#22150c,#130b06);
+  --text:#f6ece0; --muted:#cdb293; --faint:#967c5e;
+  --accent:#f6973f; --accent-2:#f0b04c; --accent-soft:rgba(240,132,60,.18);
+  --on-accent:#2a1206; --btn-bg:linear-gradient(135deg,#f0a24c,#ef6a35);
+  --glow:0 8px 30px -8px rgba(240,116,60,.5); --text-glow:0 1px 22px rgba(240,140,60,.45);
+  --border:rgba(240,160,80,.28); --radius:16px; --radius-lg:22px;
+  --glass-grad:linear-gradient(180deg,rgba(255,236,210,.14),rgba(255,236,210,.03));
+  --glass-border:rgba(255,220,180,.22); --glass-hi:rgba(255,235,210,.45); --glass-shadow:0 12px 34px -14px rgba(0,0,0,.6);
+  --logo-font:'Cormorant Garamond',serif; --head-font:'Noto Sans TC',sans-serif; --body-font:'Noto Sans TC',sans-serif;
+}
+[data-theme="minimal"]{
+  --phone-bg:radial-gradient(55% 40% at 15% 6%,rgba(99,102,241,.18),transparent 60%),radial-gradient(50% 40% at 90% 18%,rgba(56,189,248,.14),transparent 62%),radial-gradient(62% 50% at 72% 95%,rgba(167,139,250,.16),transparent 66%),linear-gradient(180deg,#fbfbfd,#eff0f4);
+  --text:#15151a; --muted:#62626c; --faint:#9a9aa4;
+  --accent:#4f46e5; --accent-2:#4f46e5; --accent-soft:rgba(79,70,229,.10);
+  --on-accent:#ffffff; --btn-bg:linear-gradient(135deg,#1a1a22,#2a2a36);
+  --glow:0 8px 20px -10px rgba(20,20,40,.35); --text-glow:none;
+  --border:rgba(0,0,0,.10); --radius:11px; --radius-lg:14px;
+  --glass-grad:linear-gradient(180deg,rgba(255,255,255,.74),rgba(255,255,255,.46));
+  --glass-border:rgba(255,255,255,.85); --glass-hi:rgba(255,255,255,.95); --glass-shadow:0 12px 30px -16px rgba(20,20,50,.25);
+  --logo-font:'Space Grotesk',sans-serif; --head-font:'Space Grotesk','Noto Sans TC',sans-serif; --body-font:'Noto Sans TC',sans-serif;
+}
+[data-theme="party"]{
+  --phone-bg:radial-gradient(55% 40% at 14% 6%,rgba(255,77,141,.46),transparent 60%),radial-gradient(52% 40% at 90% 14%,rgba(255,200,60,.5),transparent 60%),radial-gradient(60% 48% at 82% 92%,rgba(25,195,166,.46),transparent 64%),radial-gradient(55% 45% at 18% 92%,rgba(124,58,237,.4),transparent 64%),linear-gradient(180deg,#fff6ef,#ffeede);
+  --text:#2e1a47; --muted:#765689; --faint:#ac97bd;
+  --accent:#ff3d86; --accent-2:#19c3a6; --accent-soft:rgba(255,77,141,.14);
+  --on-accent:#ffffff; --btn-bg:linear-gradient(135deg,#ff4d8d,#ff8a3d);
+  --glow:0 10px 26px -8px rgba(255,77,141,.5); --text-glow:none;
+  --border:rgba(124,58,237,.2); --radius:20px; --radius-lg:26px;
+  --glass-grad:linear-gradient(180deg,rgba(255,255,255,.68),rgba(255,255,255,.38));
+  --glass-border:rgba(255,255,255,.88); --glass-hi:rgba(255,255,255,.95); --glass-shadow:0 14px 32px -14px rgba(124,58,237,.32);
+  --logo-font:'Baloo 2',cursive; --head-font:'Noto Sans TC',sans-serif; --body-font:'Noto Sans TC',sans-serif;
+}
+
+@keyframes eqbar{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes meshDrift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(-2%,2%) scale(1.06)}100%{transform:translate(0,0) scale(1)}}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translateX(-50%)}}
+@keyframes popIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
