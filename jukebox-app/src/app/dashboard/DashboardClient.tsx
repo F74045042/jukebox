@@ -4,15 +4,32 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/client';
+import { useVenue } from '@/lib/useVenue';
+import { THEME_ORDER, THEMES, type ThemeId } from '@/lib/themes';
 
 const DEFAULT_TABLES = ['A', 'B', 'C', 'D'].flatMap((r) => [1, 2, 3, 4, 5].map((c) => `${r}${c}`)).join(' ');
 
 export default function DashboardClient({ venue, email }: { venue: { id: string; name: string }; email: string }) {
   const router = useRouter();
+  const { config } = useVenue(venue.id);
   const [origin, setOrigin] = useState('');
   const [tablesText, setTablesText] = useState(DEFAULT_TABLES);
   const [qrs, setQrs] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState('');
+  const [theme, setTheme] = useState<ThemeId>('retro');
+
+  useEffect(() => {
+    if (config.theme) setTheme(config.theme);
+  }, [config.theme]);
+
+  function pickTheme(id: ThemeId) {
+    setTheme(id);
+    fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'saveSettings', venueId: venue.id, config: { theme: id } }),
+    }).catch(() => {});
+  }
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -88,6 +105,31 @@ export default function DashboardClient({ venue, email }: { venue: { id: string;
             {copied === 'cust' ? '已複製 ✓' : '複製'}
           </button>
         </div>
+      </section>
+
+      <section className="mb-6 card rounded-xl p-4 print:hidden">
+        <div className="text-sm font-bold">店家氛圍（客人點歌頁的風格）</div>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {THEME_ORDER.map((id) => {
+            const m = THEMES[id];
+            const active = theme === id;
+            return (
+              <button
+                key={id}
+                onClick={() => pickTheme(id)}
+                className="flex items-center gap-3 rounded-xl border p-3 text-left transition"
+                style={{ borderColor: active ? 'var(--ember)' : 'var(--border)', background: active ? 'rgba(240,116,60,0.12)' : 'var(--glass)' }}
+              >
+                <span className="h-9 w-9 shrink-0 rounded-lg" style={{ background: m.swatch, boxShadow: '0 0 0 1px rgba(255,255,255,.2) inset' }} />
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold">{m.name}{active && ' ✓'}</span>
+                  <span className="block text-xs text-[var(--faint)]">{m.desc}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-xs text-[var(--faint)]">選好後，客人點歌頁會即時套用這個風格。</p>
       </section>
 
       <section className="mb-4 card rounded-xl p-4 print:hidden">
