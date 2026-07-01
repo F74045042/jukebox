@@ -15,6 +15,9 @@ interface YTPlayer {
   setVolume: (v: number) => void;
   unMute: () => void;
   getCurrentTime: () => number;
+  loadModule?: (module: string) => void;
+  getOption?: (module: string, option: string) => unknown;
+  setOption?: (module: string, option: string, value: unknown) => void;
 }
 
 interface YTNamespace {
@@ -44,7 +47,7 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
 
   // KTV 歌詞
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
-  const [lyricStatus, setLyricStatus] = useState<'idle' | 'loading' | 'synced' | 'plain' | 'none'>('idle');
+  const [lyricStatus, setLyricStatus] = useState<'idle' | 'checking' | 'cc' | 'loading' | 'synced' | 'plain' | 'none'>('idle');
   const [activeLine, setActiveLine] = useState(-1);
   const [lyricMatch, setLyricMatch] = useState('');
   const [offset, setOffset] = useState(0); // 秒；正值=歌詞提早顯示
@@ -159,49 +162,94 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
     admin('saveSettings', { config: { playerMode: m } });
   }
 
-  // KTV：換歌時抓歌詞
+  // YouTube 內建字幕（CC）控制：模組名在不同播放器版本可能是 captions 或 cc
+  function ccTracklist(): unknown[] {
+    const p = playerRef.current;
+    if (!p?.getOption) return [];
+    for (const m of ['captions', 'cc']) {
+      try {
+        const tl = p.getOption(m, 'tracklist');
+        if (Array.isArray(tl) && tl.length) return tl;
+      } catch {
+        /* 舊版播放器沒有此模組 */
+      }
+    }
+    return [];
+  }
+  function ccSet(track: unknown | null) {
+    const p = playerRef.current;
+    if (!p?.setOption) return;
+    for (const m of ['captions', 'cc']) {
+      try {
+        p.setOption(m, 'track', track ?? {});
+      } catch {
+        /* 忽略 */
+      }
+    }
+  }
+
+  // KTV：換歌時先看影片有沒有字幕(CC)，有就用影片字幕，沒有才退回 LRCLIB 歌詞
   useEffect(() => {
     if (mode !== 'ktv' || !now) {
+      ccSet(null); // 離開 KTV 時關掉字幕
       setLyrics([]);
       setLyricStatus('idle');
       setActiveLine(-1);
       return;
     }
     let cancelled = false;
-    setLyricStatus('loading');
     setLyrics([]);
     setActiveLine(-1);
     setOffset(0);
-    fetch('/api/lyrics', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: now.title }),
-    })
-      .then((x) => x.json())
-      .then((r) => {
-        if (cancelled) return;
-        setLyricMatch(r.success && r.track ? `${r.track}${r.artist ? ' - ' + r.artist : ''}` : '');
-        if (r.success && r.synced) {
-          setLyrics(parseLrc(r.synced));
-          setLyricStatus('synced');
-        } else if (r.success && r.plain) {
-          setLyrics(
-            String(r.plain)
-              .split('\n')
-              .map((s) => s.trim())
-              .filter(Boolean)
-              .map((t) => ({ t: -1, text: t })),
-          );
-          setLyricStatus('plain');
-        } else {
-          setLyricStatus('none');
-        }
+    setLyricMatch('');
+    setLyricStatus('checking');
+
+    const fetchLyrics = () => {
+      setLyricStatus('loading');
+      fetch('/api/lyrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: now.title }),
       })
-      .catch(() => {
-        if (!cancelled) setLyricStatus('none');
-      });
+        .then((x) => x.json())
+        .then((r) => {
+          if (cancelled) return;
+          setLyricMatch(r.success && r.track ? `${r.track}${r.artist ? ' - ' + r.artist : ''}` : '');
+          if (r.success && r.synced) {
+            setLyrics(parseLrc(r.synced));
+            setLyricStatus('synced');
+          } else if (r.success && r.plain) {
+            setLyrics(String(r.plain).split('\n').map((s) => s.trim()).filter(Boolean).map((t) => ({ t: -1, text: t })));
+            setLyricStatus('plain');
+          } else {
+            setLyricStatus('none');
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setLyricStatus('none');
+        });
+    };
+
+    // 先偵測影片字幕（模組載入需要一點時間，輪詢幾秒）
+    try { playerRef.current?.loadModule?.('captions'); } catch { /* noop */ }
+    let tries = 0;
+    const poll = setInterval(() => {
+      if (cancelled) { clearInterval(poll); return; }
+      tries++;
+      const tl = ccTracklist();
+      if (tl.length) {
+        ccSet(tl[0]); // 開啟影片內建字幕
+        setLyricStatus('cc');
+        clearInterval(poll);
+      } else if (tries >= 8) {
+        clearInterval(poll);
+        fetchLyrics(); // 影片沒字幕 → 退回歌詞庫
+      }
+    }, 400);
+
     return () => {
       cancelled = true;
+      clearInterval(poll);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, now?.video_id]);
@@ -286,8 +334,16 @@ export default function PlayerClient({ venueId, email }: { venueId: string; emai
             </div>
           )}
 
-          {/* KTV：歌詞疊在（變暗的）影片上 */}
-          {mode === 'ktv' && (
+          {/* KTV：用影片字幕(CC)時顯示影片＋小標；偵測中也顯示影片 */}
+          {mode === 'ktv' && lyricStatus === 'cc' && (
+            <div className="absolute left-2 top-2 z-30 rounded bg-black/50 px-2 py-1 text-xs text-[var(--faint)]">🎬 跟著影片字幕唱</div>
+          )}
+          {mode === 'ktv' && lyricStatus === 'checking' && (
+            <div className="absolute left-2 top-2 z-30 rounded bg-black/50 px-2 py-1 text-xs text-[var(--faint)]">偵測影片字幕中…</div>
+          )}
+
+          {/* KTV：影片沒字幕 → 歌詞疊在（變暗的）影片上 */}
+          {mode === 'ktv' && (lyricStatus === 'loading' || lyricStatus === 'synced' || lyricStatus === 'plain' || lyricStatus === 'none') && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/75 px-6 text-center">
               {lyricStatus === 'loading' && <p className="text-[var(--muted)]">載入歌詞中…</p>}
               {lyricStatus === 'none' && (
